@@ -173,33 +173,91 @@
 
         var defaults = { cfg: { lunchLimitMin:120, leaveWarnMin:15, tone:'01.mp3', nag:'off', meeting:'' } };
 
-        function loadCfg(){ var raw = localStorage.getItem(CFG_KEY); return raw ? JSON.parse(raw) : defaults.cfg; }
-        function saveCfg(cfg){ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
+        function loadCfg(){ try{ var raw = localStorage.getItem(CFG_KEY); if(!raw) return Object.assign({}, defaults.cfg); var parsed = JSON.parse(raw); if(!parsed || typeof parsed !== 'object') return Object.assign({}, defaults.cfg); // merge missing
+            return Object.assign({}, defaults.cfg, parsed);
+          }catch(e){ console.warn('cfg load error', e); return Object.assign({}, defaults.cfg); } }
 
-        function loadAll(){ var raw = localStorage.getItem(KEY); if(!raw) return {dates:{}, meta:{}}; try{ return JSON.parse(raw); }catch(e){ return {dates:{}, meta:{}}; } }
+        function saveCfg(cfg){ try{ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }catch(e){ console.warn('saveCfg failed', e); } }
+
+        function loadAll(){
+          try{
+            var raw = localStorage.getItem(KEY);
+            if(!raw) return { dates: {}, meta: {} };
+            var parsed = JSON.parse(raw);
+            if(!parsed || typeof parsed !== 'object') return { dates: {}, meta: {} };
+            // ensure structure
+            if(!parsed.dates || typeof parsed.dates !== 'object') parsed.dates = {};
+            if(!parsed.meta || typeof parsed.meta !== 'object') parsed.meta = {};
+            return parsed;
+          }catch(e){
+            console.warn('loadAll parse error', e);
+            // attempt to back up corrupted value (best-effort)
+            try{
+              localStorage.setItem(KEY + '.corrupted.' + (new Date()).toISOString(), localStorage.getItem(KEY));
+            }catch(nope){}
+            // reset to safe structure
+            return { dates: {}, meta: {} };
+          }
+        }
+
         function saveAll(obj){
-          var keys = Object.keys(obj.dates).sort().reverse().slice(0,MAX_HISTORY_DAYS);
-          var pruned = {};
-          for(var i=0;i<keys.length;i++){ pruned[keys[i]] = obj.dates[keys[i]]; }
-          obj.dates = pruned;
-          obj.meta = obj.meta || {};
-          obj.meta.savedAt = new Date().toISOString();
-          localStorage.setItem(KEY, JSON.stringify(obj));
+          try{
+            obj = obj || { dates: {}, meta: {} };
+            // prune keys safely: take valid keys only (strings that look like yyyy-mm-dd)
+            var allKeys = Object.keys(obj.dates || {}).filter(function(k){
+              return typeof k === 'string' && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(k);
+            }).sort().reverse().slice(0, MAX_HISTORY_DAYS);
+            var pruned = {};
+            for(var i=0;i<allKeys.length;i++){ var kk = allKeys[i]; pruned[kk] = obj.dates[kk]; }
+            obj.dates = pruned;
+            obj.meta = obj.meta || {};
+            obj.meta.savedAt = new Date().toISOString();
+            localStorage.setItem(KEY, JSON.stringify(obj));
+          }catch(e){ console.warn('saveAll failed', e); }
         }
 
         var storage = loadAll();
         var cfg = loadCfg();
 
-        function ensureToday(){ var k = todayKey(); if(!storage.dates[k]) storage.dates[k] = { entrada:null, inicioAlm:null, fimAlm:null, saida:null, history:[] }; }
+        // ensure storage.dates exists as object
+        if(!storage || typeof storage !== 'object') storage = { dates: {}, meta: {} };
+        if(!storage.dates || typeof storage.dates !== 'object') storage.dates = {};
+
+        function ensureToday(){
+          try{
+            var k = todayKey();
+            if(!storage.dates[k] || typeof storage.dates[k] !== 'object'){
+              storage.dates[k] = { entrada:null, inicioAlm:null, fimAlm:null, saida:null, history:[] };
+              // we don't immediately prune old dates here, saveAll will prune when saving
+              saveAll(storage);
+            }
+          }catch(e){ console.warn('ensureToday', e); }
+        }
+
+        function getStateFor(dateKey){
+          try{
+            if(!dateKey) return { entrada:null, inicioAlm:null, fimAlm:null, saida:null, history:[] };
+            if(!storage.dates || typeof storage.dates !== 'object') storage.dates = {};
+            var s = storage.dates[dateKey];
+            if(!s || typeof s !== 'object'){
+              // return an empty structure but do not mutate storage unless ensureToday called
+              return { entrada:null, inicioAlm:null, fimAlm:null, saida:null, history:[] };
+            }
+            // ensure history array exists
+            if(!Array.isArray(s.history)) s.history = [];
+            return s;
+          }catch(e){ console.warn('getStateFor', e); return { entrada:null, inicioAlm:null, fimAlm:null, saida:null, history:[] }; }
+        }
+
         ensureToday();
 
         var audio = document.getElementById('audioPlayer');
 
-        function setAudioSource(){ try{ audio.src = 'assets/ring/' + cfg.tone; }catch(e){} }
-        function playTone(){ try{ setAudioSource(); audio.loop = (cfg.nag === 'on'); try{ audio.currentTime = 0; audio.play(); }catch(e){} }catch(e){} }
+        function setAudioSource(){ try{ if(!cfg || !cfg.tone) cfg = Object.assign({}, defaults.cfg, cfg || {}); audio.src = 'assets/ring/' + (cfg.tone || '01.mp3'); }catch(e){} }
+        function playTone(){ try{ setAudioSource(); audio.loop = (cfg && cfg.nag === 'on'); audio.currentTime = 0; var p = audio.play(); if(p && typeof p.catch === 'function') p.catch(function(){/* autoplay blocked */}); }catch(e){} }
         function stopTone(){ try{ audio.pause(); audio.currentTime = 0; audio.loop = false; }catch(e){} }
 
-        function notify(title, body){ try{ if('Notification' in window){ if(Notification.permission === 'granted'){ try{ new Notification(title, { body: body, requireInteraction: (cfg.nag === 'on') }); }catch(e){} } } if(navigator.vibrate) navigator.vibrate([200,100,200]); }catch(e){} }
+        function notify(title, body){ try{ if('Notification' in window){ if(Notification.permission === 'granted'){ try{ new Notification(title, { body: body, requireInteraction: (cfg && cfg.nag === 'on') }); }catch(e){} } } if(navigator.vibrate) navigator.vibrate([200,100,200]); }catch(e){} }
 
         var byId = function(id){ return document.getElementById(id); };
         var entradaDisplay = byId('entradaDisplay');
@@ -208,11 +266,22 @@
         var logEl = byId('log');
         var historyEl = byId('history');
 
-        function fmtTime(d){ if(!d) return '--:--'; var dt = new Date(d); return dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
+        function fmtTime(d){ if(!d) return '--:--'; try{ var dt = new Date(d); if(isNaN(dt.getTime())) return '--:--'; return dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }catch(e){ return '--:--'; } }
         function nowIso(){ return (new Date()).toISOString(); }
 
-        function getStateFor(dateKey){ return storage.dates[dateKey]; }
-        function pushHistory(dateKey, evt){ var s = getStateFor(dateKey); s.history.unshift(evt); if(s.history.length > 300) s.history.pop(); saveAll(storage); renderHistory(); }
+        function pushHistory(dateKey, evt){
+          try{
+            if(!dateKey) dateKey = todayKey();
+            if(!storage.dates) storage.dates = {};
+            if(!storage.dates[dateKey] || typeof storage.dates[dateKey] !== 'object') storage.dates[dateKey] = { entrada:null, inicioAlm:null, fimAlm:null, saida:null, history:[] };
+            var s = storage.dates[dateKey];
+            if(!Array.isArray(s.history)) s.history = [];
+            s.history.unshift(evt);
+            if(s.history.length > 300) s.history = s.history.slice(0,300);
+            saveAll(storage);
+            renderHistory();
+          }catch(e){ console.warn('pushHistory', e); }
+        }
 
         function clearFieldToday(fieldName){
           try{
@@ -222,7 +291,9 @@
             if(!s) return;
             if(!s[fieldName]) { alert('Nada para remover em ' + fieldName); return; }
             if(!confirm('Remover ' + fieldName + ' do dia ' + k + '?')) return;
-            s[fieldName] = null;
+            // mutate the stored object safely
+            if(!storage.dates[k] || typeof storage.dates[k] !== 'object') storage.dates[k] = { entrada:null, inicioAlm:null, fimAlm:null, saida:null, history:[] };
+            storage.dates[k][fieldName] = null;
             pushHistory(k, { type: 'removed_' + fieldName, time: nowIso(), note: 'Removido manualmente' });
             saveAll(storage);
             render();
@@ -238,6 +309,7 @@
               if(!confirm('Já existe uma entrada às ' + fmtTime(s.entrada) + '. Deseja sobrescrever?')) return;
             }
             if(!t) t = nowIso();
+            if(!storage.dates[k] || typeof storage.dates[k] !== 'object') storage.dates[k] = { entrada:null, inicioAlm:null, fimAlm:null, saida:null, history:[] };
             storage.dates[k].entrada = t;
             pushHistory(k, { type:'entrada', time: t });
             saveAll(storage);
@@ -254,6 +326,7 @@
               if(!confirm('Já iniciou almoço às ' + fmtTime(s.inicioAlm) + '. Deseja sobrescrever?')) return;
             }
             if(!t) t = nowIso();
+            if(!storage.dates[k] || typeof storage.dates[k] !== 'object') storage.dates[k] = { entrada:null, inicioAlm:null, fimAlm:null, saida:null, history:[] };
             storage.dates[k].inicioAlm = t;
             pushHistory(k, { type:'inicioAlm', time: t });
             saveAll(storage);
@@ -270,6 +343,7 @@
               if(!confirm('Já encerrou almoço às ' + fmtTime(s.fimAlm) + '. Deseja sobrescrever?')) return;
             }
             if(!t) t = nowIso();
+            if(!storage.dates[k] || typeof storage.dates[k] !== 'object') storage.dates[k] = { entrada:null, inicioAlm:null, fimAlm:null, saida:null, history:[] };
             storage.dates[k].fimAlm = t;
             pushHistory(k, { type:'fimAlm', time: t });
             saveAll(storage);
@@ -286,6 +360,7 @@
               if(!confirm('Já existe uma saída às ' + fmtTime(s.saida) + '. Deseja sobrescrever?')) return;
             }
             if(!t) t = nowIso();
+            if(!storage.dates[k] || typeof storage.dates[k] !== 'object') storage.dates[k] = { entrada:null, inicioAlm:null, fimAlm:null, saida:null, history:[] };
             storage.dates[k].saida = t;
             pushHistory(k, { type:'saida', time: t });
             saveAll(storage);
@@ -298,21 +373,56 @@
 
         function openManual(){ try{ var modal = byId('manualModal'); if(modal) modal.style.display = 'flex'; }catch(e){} }
 
-        function getLunchDurationMsFor(dateKey){ try{ var s = getStateFor(dateKey); if(!s || !s.inicioAlm) return 0; var end = s.fimAlm ? new Date(s.fimAlm) : new Date(); return Math.max(0, end - new Date(s.inicioAlm)); }catch(e){ return 0; } }
-        function calcRecommendedExitFor(dateKey){ try{ var s = getStateFor(dateKey); if(!s || !s.entrada) return null; var entrada = new Date(s.entrada); var workMs = 8*60*60*1000; var lunchMs = 0; if(s.inicioAlm && s.fimAlm) lunchMs = new Date(s.fimAlm) - new Date(s.inicioAlm); if(s.inicioAlm && !s.fimAlm) lunchMs = new Date() - new Date(s.inicioAlm); var exit = new Date(entrada.getTime() + workMs + lunchMs); return exit; }catch(e){ return null; } }
+        function getLunchDurationMsFor(dateKey){ try{ var s = getStateFor(dateKey); if(!s || !s.inicioAlm) return 0; var end = s.fimAlm ? new Date(s.fimAlm) : new Date(); var start = new Date(s.inicioAlm); if(isNaN(start.getTime())) return 0; return Math.max(0, end - start); }catch(e){ return 0; } }
+        function calcRecommendedExitFor(dateKey){ try{ var s = getStateFor(dateKey); if(!s || !s.entrada) return null; var entrada = new Date(s.entrada); if(isNaN(entrada.getTime())) return null; var workMs = 8*60*60*1000; var lunchMs = 0; if(s.inicioAlm && s.fimAlm){ var a = new Date(s.inicioAlm), b = new Date(s.fimAlm); if(!isNaN(a.getTime()) && !isNaN(b.getTime())) lunchMs = b - a; } else if(s.inicioAlm && !s.fimAlm){ var a2 = new Date(s.inicioAlm); if(!isNaN(a2.getTime())) lunchMs = new Date() - a2; } var exit = new Date(entrada.getTime() + workMs + lunchMs); return exit; }catch(e){ return null; } }
 
-        function scheduleAll(){ try{ if(window._pontoTimers) { for(var i=0;i<window._pontoTimers.length;i++){ clearTimeout(window._pontoTimers[i]); } } window._pontoTimers = []; var k = todayKey(); var exit = calcRecommendedExitFor(k); if(exit){ var now = new Date(); var delta = exit - now; if(delta > 0){ var warnMs = cfg.leaveWarnMin * 60 * 1000; var tWarn = delta - warnMs; if(tWarn > 0) window._pontoTimers.push(setTimeout(function(){ triggerLeaveWarning(exit); }, tWarn)); window._pontoTimers.push(setTimeout(function(){ triggerLeaveWarning(exit, true); }, delta)); } } var s = getStateFor(k); if(s && s.inicioAlm && !s.fimAlm){ var start = new Date(s.inicioAlm); var limit = start.getTime() + cfg.lunchLimitMin*60*1000; var nowT = Date.now(); var delta2 = limit - nowT; if(delta2 > 0) window._pontoTimers.push(setTimeout(function(){ triggerLunchLimit(); }, delta2)); else triggerLunchLimit(); } if(cfg.meeting){ var parts = cfg.meeting.split(':'); if(parts[0] !== undefined && parts[0] !== ''){ var d = new Date(); d.setHours(parseInt(parts[0],10), parseInt(parts[1]||0,10),0,0); var dd = d.getTime() - Date.now(); if(dd > 0) window._pontoTimers.push(setTimeout(function(){ triggerMeetingReminder(cfg.meeting); }, dd)); } } }catch(e){ console.warn('scheduleAll failed', e); } }
+        function scheduleAll(){ try{
+          if(window._pontoTimers) { for(var i=0;i<window._pontoTimers.length;i++){ clearTimeout(window._pontoTimers[i]); } }
+          window._pontoTimers = [];
+          var k = todayKey();
+          var exit = calcRecommendedExitFor(k);
+          if(exit){
+            var now = new Date();
+            var delta = exit - now;
+            if(delta > 0){
+              var warnMs = (cfg && cfg.leaveWarnMin ? cfg.leaveWarnMin : 15) * 60 * 1000;
+              var tWarn = delta - warnMs;
+              if(tWarn > 0) window._pontoTimers.push(setTimeout(function(){ triggerLeaveWarning(exit); }, tWarn));
+              window._pontoTimers.push(setTimeout(function(){ triggerLeaveWarning(exit, true); }, delta));
+            }
+          }
+          var s = getStateFor(k);
+          if(s && s.inicioAlm && !s.fimAlm){
+            var start = new Date(s.inicioAlm);
+            if(!isNaN(start.getTime())){
+              var limit = start.getTime() + ((cfg && cfg.lunchLimitMin ? cfg.lunchLimitMin : 120) * 60 * 1000);
+              var nowT = Date.now();
+              var delta2 = limit - nowT;
+              if(delta2 > 0) window._pontoTimers.push(setTimeout(function(){ triggerLunchLimit(); }, delta2));
+              else triggerLunchLimit();
+            }
+          }
+          if(cfg && cfg.meeting){
+            var parts = (cfg.meeting || '').split(':');
+            if(parts[0] !== undefined && parts[0] !== ''){
+              var d = new Date();
+              d.setHours(parseInt(parts[0],10), parseInt(parts[1]||0,10),0,0);
+              var dd = d.getTime() - Date.now();
+              if(dd > 0) window._pontoTimers.push(setTimeout(function(){ triggerMeetingReminder(cfg.meeting); }, dd));
+            }
+          }
+        }catch(e){ console.warn('scheduleAll failed', e); } }
 
         function triggerLunchLimit(){ notify('Almoço: limite atingido', 'Você atingiu o limite configurado de almoço. Marque retorno.'); playTone(); }
         function triggerMeetingReminder(time){ notify('Lembrete: reunião', 'Reunião às ' + time); playTone(); }
-        function triggerLeaveWarning(exit, force){ var t = new Date(exit); var msg = force ? ('Hora de sair (' + t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) + ')') : ('Faltam ' + cfg.leaveWarnMin + ' minutos para sua saída às ' + t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})); notify('Saída', msg); playTone(); }
+        function triggerLeaveWarning(exit, force){ var t = new Date(exit); var msg = force ? ('Hora de sair (' + (t && t.toLocaleTimeString ? t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '') + ')') : ('Faltam ' + (cfg && cfg.leaveWarnMin ? cfg.leaveWarnMin : 15) + ' minutos para sua saída às ' + (t && t.toLocaleTimeString ? t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '')); notify('Saída', msg); playTone(); }
 
         function render(){
           try{
             var k = todayKey();
             ensureToday();
             var s = getStateFor(k);
-            entradaDisplay.textContent = s && s.entrada ? fmtTime(s.entrada) : '--:--';
+            entradaDisplay.textContent = (s && s.entrada) ? fmtTime(s.entrada) : '--:--';
             var exit = calcRecommendedExitFor(k);
             saidaRecomendada.textContent = exit ? exit.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '--:--';
 
@@ -328,28 +438,58 @@
             if(lunchDiv){
               if(s && s.inicioAlm && !s.fimAlm){
                 var start = new Date(s.inicioAlm);
-                var limitMs = start.getTime() + (cfg.lunchLimitMin * 60 * 1000);
-                var now = Date.now();
-                var delta = limitMs - now;
-                if(delta > 0){
-                  var mLeft = Math.ceil(delta/60000);
-                  lunchDiv.textContent = 'No almoço — faltam ' + mLeft + ' min até o limite';
+                if(!isNaN(start.getTime())){
+                  var limitMs = start.getTime() + ((cfg && cfg.lunchLimitMin ? cfg.lunchLimitMin : 120) * 60 * 1000);
+                  var now = Date.now();
+                  var delta = limitMs - now;
+                  if(delta > 0){
+                    var mLeft = Math.ceil(delta/60000);
+                    lunchDiv.textContent = 'No almoço — faltam ' + mLeft + ' min até o limite';
+                  } else {
+                    lunchDiv.textContent = 'Limite de almoço atingido';
+                  }
                 } else {
-                  lunchDiv.textContent = 'Limite de almoço atingido';
+                  lunchDiv.textContent = '';
                 }
               } else if(s && s.inicioAlm && s.fimAlm){
-                var totalMin = Math.round((new Date(s.fimAlm) - new Date(s.inicioAlm))/60000);
-                lunchDiv.textContent = 'Almoço finalizado — duração: ' + totalMin + ' min';
+                var a = new Date(s.inicioAlm), b = new Date(s.fimAlm);
+                if(!isNaN(a.getTime()) && !isNaN(b.getTime())){
+                  var totalMin = Math.round((b - a)/60000);
+                  lunchDiv.textContent = 'Almoço finalizado — duração: ' + totalMin + ' min';
+                } else lunchDiv.textContent = '';
               } else {
                 lunchDiv.textContent = '';
               }
             }
 
             renderHistory();
-          }catch(e){}
+          }catch(e){ console.warn('render error', e); }
         }
 
-        function renderHistory(){ try{ historyEl.innerHTML = ''; var dates = Object.keys(storage.dates).sort().reverse().slice(0,MAX_HISTORY_DAYS); for(var i=0;i<dates.length;i++){ var dk = dates[i]; var s = storage.dates[dk]; var div = document.createElement('div'); div.className = 'entry'; div.innerHTML = '<div><div class="muted">'+dk+'</div><div>Entrada: '+(s.entrada?fmtTime(s.entrada):'--:--')+' — Saída: '+(s.saida?fmtTime(s.saida):'--:--')+'</div></div><div><button class="small" data-show="'+dk+'" type="button">Ver</button></div>'; historyEl.appendChild(div); } logEl.innerHTML = ''; var todayHist = (getStateFor(todayKey()) || {history: []}).history; for(var j=0;j<todayHist.length;j++){ var h = todayHist[j]; var d = document.createElement('div'); d.className='entry'; d.innerHTML = '<div>'+h.type+' — '+(new Date(h.time)).toLocaleString()+'</div><div><button class="small" data-remove="'+h.time+'" type="button">X</button></div>'; logEl.appendChild(d); } }catch(e){} }
+        function renderHistory(){ try{
+            historyEl.innerHTML = '';
+            var keys = Object.keys(storage.dates || {}).filter(function(k){ return typeof k === 'string'; });
+            keys.sort().reverse();
+            keys = keys.slice(0, MAX_HISTORY_DAYS);
+            for(var i=0;i<keys.length;i++){
+              var dk = keys[i];
+              var s = getStateFor(dk);
+              var div = document.createElement('div');
+              div.className = 'entry';
+              div.innerHTML = '<div><div class="muted">'+dk+'</div><div>Entrada: '+(s.entrada?fmtTime(s.entrada):'--:--')+' — Saída: '+(s.saida?fmtTime(s.saida):'--:--')+'</div></div><div><button class="small" data-show="'+dk+'" type="button">Ver</button></div>';
+              historyEl.appendChild(div);
+            }
+            logEl.innerHTML = '';
+            var todayHist = (getStateFor(todayKey()) || {history: []}).history || [];
+            for(var j=0;j<todayHist.length;j++){
+              var h = todayHist[j];
+              var d = document.createElement('div');
+              d.className='entry';
+              var timeStr = (h && h.time) ? (new Date(h.time)).toLocaleString() : '';
+              d.innerHTML = '<div>' + (h.type || '') + ' — ' + timeStr + '</div><div><button class="small" data-remove="'+(h.time||'')+'" type="button">X</button></div>';
+              logEl.appendChild(d);
+            }
+          }catch(e){ console.warn('renderHistory', e); } }
 
         // safe listener util
         function safeAddListener(id, evt, handler){
@@ -371,9 +511,23 @@
 
         safeAddListener('btnManual','click', function(){ var modal = byId('manualModal'); if(modal) modal.style.display = 'flex'; });
         safeAddListener('manualCancel','click', function(){ var modal = byId('manualModal'); if(modal) modal.style.display = 'none'; });
-        safeAddListener('manualSave','click', function(){ var tipoEl = byId('manualType'); var timeEl = byId('manualTime'); var tipo = tipoEl? tipoEl.value : 'entrada'; var timeVal = timeEl? timeEl.value : ''; var iso = null; if(timeVal){ var parts = timeVal.split(':'); var d = new Date(); d.setHours(parseInt(parts[0]||0,10), parseInt(parts[1]||0,10),0,0); iso = d.toISOString(); } if(tipo === 'entrada') markEntrada(iso); else if(tipo === 'inicioAlm') markInicioAlm(iso); else if(tipo === 'fimAlm') markFimAlm(iso); else if(tipo === 'saida') markSaida(iso); var modal = byId('manualModal'); if(modal) modal.style.display = 'none'; });
+        safeAddListener('manualSave','click', function(){
+          var tipoEl = byId('manualType'); var timeEl = byId('manualTime');
+          var tipo = tipoEl? tipoEl.value : 'entrada'; var timeVal = timeEl? timeEl.value : '';
+          var iso = null;
+          if(timeVal){
+            var parts = timeVal.split(':'); var d = new Date();
+            d.setHours(parseInt(parts[0]||0,10), parseInt(parts[1]||0,10),0,0);
+            iso = d.toISOString();
+          }
+          if(tipo === 'entrada') markEntrada(iso);
+          else if(tipo === 'inicioAlm') markInicioAlm(iso);
+          else if(tipo === 'fimAlm') markFimAlm(iso);
+          else if(tipo === 'saida') markSaida(iso);
+          var modal = byId('manualModal'); if(modal) modal.style.display = 'none';
+        });
 
-        safeAddListener('btnClearStorage2','click', function(){ if(confirm('Limpar todo o storage?')){ localStorage.removeItem(KEY); localStorage.removeItem(CFG_KEY); storage = {dates:{}}; cfg = loadCfg(); ensureToday(); render(); alert('Storage limpo'); } });
+        safeAddListener('btnClearStorage2','click', function(){ if(confirm('Limpar todo o storage?')){ try{ localStorage.removeItem(KEY); localStorage.removeItem(CFG_KEY); storage = {dates:{}}; cfg = loadCfg(); ensureToday(); render(); alert('Storage limpo'); }catch(e){ reportError(e); } } });
         safeAddListener('btnTestTone','click', function(){ playTone(); setTimeout(function(){ stopTone(); }, 3000); });
 
         safeAddListener('btnRemoveEntrada','click', function(){ clearFieldToday('entrada'); });
@@ -385,8 +539,7 @@
         safeAddListener('btnAddMeeting','click', function(){ cfg.meeting = byId('cfgMeeting').value; saveCfg(cfg); scheduleAll(); alert('Lembrete salvo'); });
 
         safeAddListener('btnSaveCfg','click', function(){ cfg.lunchLimitMin = parseInt(byId('cfgLunchLimit').value||120,10); cfg.leaveWarnMin = parseInt(byId('cfgLeaveWarn').value||15,10); cfg.tone = byId('cfgTone').value; cfg.nag = byId('cfgNag').value; cfg.meeting = byId('cfgMeeting').value; saveCfg(cfg); setAudioSource(); scheduleAll(); alert('Configurações salvas'); });
-        safeAddListener('btnResetCfg','click', function(){ if(confirm('Resetar configurações?')){ cfg = defaults.cfg; saveCfg(cfg); applyCfgToUI(); setAudioSource(); scheduleAll(); } });
-        safeAddListener('btnPlayTone','click', function(){ playTone(); setTimeout(function(){ stopTone(); }, 3000); });
+        safeAddListener('btnResetCfg','click', function(){ if(confirm('Resetar configurações?')){ cfg = Object.assign({}, defaults.cfg); saveCfg(cfg); applyCfgToUI(); setAudioSource(); scheduleAll(); } });
 
         // install + notification
         var deferredPrompt = null;
