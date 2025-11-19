@@ -4,48 +4,62 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Ponto Reminder</title>
+  <link rel="manifest" href="#manifest">
   <style>
-    :root{--bg:#0b1220;--card:#0f1724;--accent:#00b894;--muted:#9aa6b2;--danger:#ff7675}
+    :root{--bg:#07101a;--card:#0f1724;--accent:#06d6a0;--muted:#9aa6b2;--danger:#ff7675}
     *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
-    html,body{height:100%;margin:0;background:linear-gradient(180deg,#05060a 0%,#08101a 100%);color:#e6eef6}
-    .wrap{max-width:980px;margin:20px auto;padding:18px}
-    header{display:flex;align-items:center;gap:12px}
-    h1{margin:0;font-size:20px}
-    .grid{display:grid;grid-template-columns:1fr 320px;gap:14px;margin-top:18px}
-    .card{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,.6)}
-    .controls{display:flex;flex-wrap:wrap;gap:8px}
-    button{background:transparent;border:1px solid rgba(255,255,255,.06);color:inherit;padding:8px 12px;border-radius:8px;cursor:pointer}
-    button.primary{background:linear-gradient(90deg,var(--accent),#06d6a0);color:#02111a;border:0}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#03040a 0%,#07101a 100%);color:#e6eef6}
+    .wrap{max-width:980px;margin:8px auto;padding:12px}
+    header{display:flex;align-items:center;gap:10px}
+    h1{margin:0;font-size:18px}
+    .grid{display:grid;grid-template-columns:1fr 320px;gap:10px;margin-top:10px}
+    .card{background:var(--card);padding:10px;border-radius:10px;box-shadow:0 6px 18px rgba(2,6,23,.6)}
+    .controls{display:flex;flex-wrap:wrap;gap:6px}
+    button{background:transparent;border:1px solid rgba(255,255,255,.06);color:inherit;padding:7px 10px;border-radius:8px;cursor:pointer;font-size:13px}
+    button.primary{background:linear-gradient(90deg,var(--accent),#00b894);color:#02111a;border:0}
     .small{padding:6px 8px;font-size:13px}
-    .log{max-height:360px;overflow:auto;margin-top:10px}
+    .log{overflow:auto;margin-top:8px}
     .entry{display:flex;justify-content:space-between;padding:8px;border-radius:8px;background:rgba(255,255,255,.02);margin-bottom:8px}
     label{font-size:13px;color:var(--muted)}
-    input[type=time],input[type=number],select,input[type=text]{background:transparent;border:1px solid rgba(255,255,255,.04);padding:8px;border-radius:8px;color:inherit}
+    input[type=time],input[type=number],select,input[type=text]{background:transparent;border:1px solid rgba(255,255,255,.04);padding:8px;border-radius:8px;color:inherit;font-size:13px}
     .settings{display:flex;flex-direction:column;gap:8px}
-    footer{margin-top:16px;color:var(--muted);font-size:13px}
+    footer{margin-top:12px;color:var(--muted);font-size:12px}
     .top-row{display:flex;gap:8px;align-items:center}
-    .big{font-size:28px;font-weight:700}
+    .big{font-size:26px;font-weight:700}
     .muted{color:var(--muted)}
     .danger{color:var(--danger)}
     .flex{display:flex;gap:8px;align-items:center}
     .switch{display:inline-flex;align-items:center;gap:8px}
     .file{display:flex;gap:8px;align-items:center}
-    .notice{padding:10px;border-radius:8px;background:rgba(0,0,0,.25);color:var(--muted);font-size:13px}
+    .notice{padding:8px;border-radius:8px;background:rgba(0,0,0,.18);color:var(--muted);font-size:13px}
+    @media(max-width:720px){
+      .grid{grid-template-columns:1fr;}
+      aside{order:2}
+      .wrap{padding:10px}
+      .big{font-size:22px}
+    }
+    .split-handle{height:6px;background:linear-gradient(90deg,rgba(255,255,255,.03),rgba(255,255,255,.06));border-radius:4px;cursor:ns-resize;margin:6px 0}
+    .compact .card{padding:8px;border-radius:10px}
+    .debug-panel{background:rgba(255,255,255,0.03);padding:8px;border-radius:8px;margin-top:8px}
+    .hidden{display:none}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <img src="" alt="" style="width:44px;height:44px;border-radius:8px;background:linear-gradient(135deg,#0ea5a4,#8b5cf6)" />
-      <div>
-        <h1>Ponto Reminder (Web)</h1>
-        <div class="muted">Funciona offline no navegador (LocalStorage).</div>
+  <div class="wrap compact" id="appWrap">
+    <header id="hdr">
+      <div style="width:44px;height:44px;border-radius:8px;background:linear-gradient(135deg,#0ea5a4,#8b5cf6)"></div>
+      <div style="flex:1">
+        <h1 id="title">Ponto Reminder</h1>
+        <div class="muted" id="subtitle">Hospede no GitHub Pages — funciona offline no navegador.</div>
+      </div>
+      <div style="text-align:right">
+        <div class="muted">Data: <span id="dateNow"></span></div>
       </div>
     </header>
 
     <div class="grid">
-      <div>
-        <div class="card">
+      <main>
+        <div class="card" id="mainCard">
           <div class="top-row">
             <div>
               <div class="muted">Entrada</div>
@@ -54,11 +68,11 @@
             <div style="margin-left:auto;text-align:right">
               <div class="muted">Saída recomendada</div>
               <div id="saidaRecomendada" class="big">--:--</div>
-              <div id="timeRemaining" class="muted"> </div>
+              <div id="timeRemaining" class="muted"></div>
             </div>
           </div>
 
-          <hr style="opacity:.06;margin:14px 0" />
+          <div style="height:8px"></div>
 
           <div class="controls">
             <button id="btnEntrada" class="primary">Marcar Entrada</button>
@@ -66,24 +80,30 @@
             <button id="btnFimAlm">Encerrar Almoço</button>
             <button id="btnSaida">Marcar Saída</button>
             <button id="btnReset">Reset do dia</button>
-
-            <div style="margin-left:auto;display:flex;gap:8px">
-              <button id="btnManual" class="small">Marca Manual</button>
-              <button id="btnExport">Exportar JSON</button>
-              <button id="btnImport">Importar JSON</button>
+            <div style="margin-left:auto;display:flex;gap:6px">
+              <button id="btnManual" class="small">Manual</button>
+              <button id="btnExport" class="small">Exportar</button>
+              <button id="btnImport" class="small">Importar</button>
             </div>
           </div>
 
-          <div style="margin-top:12px" class="notice">
-            Toques: assets/ring/01.mp3, 02.mp3, 03.mp3 — selecione nas configurações. Permissões: notificações e som.
-          </div>
+          <div class="notice" id="toneNotice">Selecione um toque ou faça upload de um arquivo de áudio.</div>
 
-          <div class="log" id="log">
-            <!-- registros aparecem aqui -->
+          <div class="split-handle" id="dragHandle" title="Arraste para ajustar histórico"></div>
+
+          <div style="display:flex;gap:10px">
+            <div style="flex:1">
+              <div class="muted">Histórico do dia</div>
+              <div id="history" class="log" style="height:140px"></div>
+            </div>
+            <div style="width:140px">
+              <div class="muted">Registros</div>
+              <div id="log" class="log" style="height:140px"></div>
+            </div>
           </div>
         </div>
 
-        <div class="card" style="margin-top:12px">
+        <div class="card" style="margin-top:10px">
           <h3>Configurações</h3>
           <div class="settings">
             <label>Limite almoço (minutos)</label>
@@ -93,37 +113,55 @@
             <input id="cfgLeaveWarn" type="number" min="1" value="15" />
 
             <label>Toque</label>
-            <select id="cfgTone">
-              <option value="01.mp3">01.mp3</option>
-              <option value="02.mp3">02.mp3</option>
-              <option value="03.mp3">03.mp3</option>
-            </select>
+            <div style="display:flex;gap:6px;align-items:center">
+              <select id="cfgTone" style="flex:1">
+                <option value="01.mp3">01.mp3</option>
+                <option value="02.mp3">02.mp3</option>
+                <option value="03.mp3">03.mp3</option>
+                <option value="custom">Custom (upload)</option>
+              </select>
+              <input id="inputToneFile" type="file" accept="audio/*" class="small" />
+            </div>
 
-            <label>Modo chato (repetir até ação)</label>
+            <label>Modo chato</label>
             <select id="cfgNag">
               <option value="off">Desligado</option>
               <option value="on">Ligado</option>
             </select>
 
-            <label>Lembrete extra para reunião (opcional) — ex: 12:30</label>
+            <label>Lembrete reunião (opcional)</label>
             <input id="cfgMeeting" type="time" />
 
             <div style="display:flex;gap:8px;margin-top:6px">
               <button id="btnSaveCfg" class="small">Salvar</button>
               <button id="btnResetCfg" class="small">Reset Config</button>
+              <button id="btnPlayTone" class="small">Tocar</button>
+            </div>
+
+            <div id="debugPanel" class="debug-panel hidden">
+              <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+                <label>Debug ativo</label>
+                <button id="btnTriggerNotif" class="small">Trigger Notif</button>
+                <button id="btnTriggerTone" class="small">Trigger Tone</button>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <label>Forçar Entrada</label>
+                <input id="dbgEntrada" type="time" />
+                <label>Forçar Início Alm</label>
+                <input id="dbgInicioAlm" type="time" />
+                <label>Forçar Fim Alm</label>
+                <input id="dbgFimAlm" type="time" />
+                <label>Forçar Saída</label>
+                <input id="dbgSaida" type="time" />
+                <button id="btnApplyDbg" class="small">Aplicar</button>
+              </div>
             </div>
           </div>
         </div>
-
-      </div>
+      </main>
 
       <aside>
         <div class="card">
-          <h3>Histórico do dia</h3>
-          <div id="history" style="margin-top:10px"></div>
-
-          <hr style="opacity:.06;margin:12px 0" />
-
           <h3>Import / Export</h3>
           <div style="display:flex;gap:8px;flex-direction:column">
             <button id="btnExportFile">Exportar arquivo (.json)</button>
@@ -134,83 +172,45 @@
           <div class="muted">Dicas:</div>
           <ul class="muted">
             <li>Permita notificações no navegador.</li>
-            <li>No Android use 'Adicionar à tela inicial' para disponibilizar como app sem instalação.</li>
-            <li>O app funciona offline no mesmo navegador (LocalStorage).</li>
+            <li>Use "Adicionar à tela inicial" para experiência similar a app.</li>
           </ul>
         </div>
       </aside>
     </div>
 
-    <footer>Para facilitar o nosso dia...</footer>
+    <footer>Versão de Teste.</footer>
   </div>
 
   <audio id="audioPlayer" preload="auto"></audio>
 
   <script>
-    // ---------- storage keys & helpers ----------
     const KEY = 'ponto.reminder.v1'
     const CFG_KEY = 'ponto.reminder.cfg.v1'
 
     const defaults = {
-      cfg: {
-        lunchLimitMin: 120,
-        leaveWarnMin: 15,
-        tone: '01.mp3',
-        nag: 'off',
-        meeting: ''
-      },
-      state: {
-        date: todayKey(),
-        entrada: null,
-        inicioAlm: null,
-        fimAlm: null,
-        saida: null,
-        history: []
-      }
+      cfg: { lunchLimitMin:120, leaveWarnMin:15, tone:'01.mp3', nag:'off', meeting:'', customTone:null },
+      state: { date: todayKey(), entrada:null, inicioAlm:null, fimAlm:null, saida:null, history:[] }
     }
 
     function todayKey(){ const d=new Date(); return d.toISOString().slice(0,10) }
 
-    function load(){
-      let raw = localStorage.getItem(KEY)
-      if(!raw) { save(defaults.state); localStorage.setItem(CFG_KEY, JSON.stringify(defaults.cfg)); return {...defaults.state} }
-      try{ const parsed = JSON.parse(raw); // migrate if necessary
-        if(parsed.date !== todayKey()){
-          // preserve previous day but reset state for today
-          parsed.date = todayKey(); parsed.entrada=null; parsed.inicioAlm=null; parsed.fimAlm=null; parsed.saida=null; parsed.history = parsed.history || []
-          save(parsed)
-        }
-        return parsed
-      }catch(e){ console.error(e); save(defaults.state); return {...defaults.state} }
+    function load(){ let raw=localStorage.getItem(KEY); if(!raw){ localStorage.setItem(CFG_KEY, JSON.stringify(defaults.cfg)); save(defaults.state); return {...defaults.state} } try{ const parsed=JSON.parse(raw); if(parsed.date!==todayKey()){ parsed.date=todayKey(); parsed.entrada=null; parsed.inicioAlm=null; parsed.fimAlm=null; parsed.saida=null; parsed.history=parsed.history||[]; save(parsed) } return parsed }catch(e){ save(defaults.state); return {...defaults.state} }
     }
 
     function save(state){ localStorage.setItem(KEY, JSON.stringify(state)) }
-    function loadCfg(){ const raw = localStorage.getItem(CFG_KEY); return raw ? JSON.parse(raw) : defaults.cfg }
+    function loadCfg(){ const raw=localStorage.getItem(CFG_KEY); return raw?JSON.parse(raw):defaults.cfg }
     function saveCfg(cfg){ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)) }
 
-    // ---------- app state ----------
-    let state = load()
-    let cfg = loadCfg()
+    let state = load(); let cfg = loadCfg();
 
-    // audio + notification setup
     const audio = document.getElementById('audioPlayer')
-    function playTone(){ audio.src = `assets/ring/${cfg.tone}`; audio.loop = (cfg.nag==='on'); audio.play().catch(e=>console.log('play blocked')) }
-    function stopTone(){ audio.pause(); audio.currentTime = 0; audio.loop = false }
+    function setAudioSource(){ if(cfg.tone==='custom' && cfg.customTone){ audio.src = cfg.customTone }
+      else audio.src = `assets/ring/${cfg.tone}` }
+    function playTone(){ setAudioSource(); audio.loop = (cfg.nag==='on'); audio.play().catch(()=>{}) }
+    function stopTone(){ audio.pause(); audio.currentTime=0; audio.loop=false }
 
-    async function notify(title, body, actions=[]){
-      if('Notification' in window){
-        if(Notification.permission === 'default') await Notification.requestPermission()
-        if(Notification.permission === 'granted'){
-          try{ const n = new Notification(title, {body,requireInteraction: (cfg.nag==='on')})
-            n.onclick = ()=>window.focus()
-          }catch(e){console.warn('notify failed',e)}
-        }
-      }
-      // also vibrate (mobile)
-      if(navigator.vibrate) navigator.vibrate([200,100,200])
-    }
+    async function notify(title, body){ if('Notification' in window){ if(Notification.permission==='default') await Notification.requestPermission(); if(Notification.permission==='granted'){ try{ new Notification(title,{body,requireInteraction:(cfg.nag==='on')}) }catch(e){} } } if(navigator.vibrate) navigator.vibrate([200,100,200]) }
 
-    // ---------- DOM utils ----------
     const byId = id => document.getElementById(id)
     const entradaDisplay = byId('entradaDisplay')
     const saidaRecomendada = byId('saidaRecomendada')
@@ -221,131 +221,36 @@
     function fmtTime(d){ if(!d) return '--:--'; const dt=new Date(d); return dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) }
     function nowIso(){ return (new Date()).toISOString() }
 
-    // ---------- actions ----------
-    function pushHistory(evt){ state.history.unshift(evt); if(state.history.length>200) state.history.pop(); save(state); renderHistory() }
+    function pushHistory(evt){ state.history.unshift(evt); if(state.history.length>300) state.history.pop(); save(state); renderHistory() }
 
-    function markEntrada(t=null){ if(!t) t = nowIso(); state.entrada = t; pushHistory({type:'entrada',time:t}); save(state); render(); scheduleAll() }
-    function markInicioAlm(t=null){ if(!t) t = nowIso(); state.inicioAlm = t; pushHistory({type:'inicioAlm',time:t}); save(state); render(); scheduleAll() }
-    function markFimAlm(t=null){ if(!t) t = nowIso(); state.fimAlm = t; pushHistory({type:'fimAlm',time:t}); save(state); render(); scheduleAll() }
-    function markSaida(t=null){ if(!t) t = nowIso(); state.saida = t; pushHistory({type:'saida',time:t}); save(state); render(); scheduleAll() }
+    function markEntrada(t=null){ if(!t) t=nowIso(); state.entrada=t; pushHistory({type:'entrada',time:t}); save(state); render(); scheduleAll() }
+    function markInicioAlm(t=null){ if(!t) t=nowIso(); state.inicioAlm=t; pushHistory({type:'inicioAlm',time:t}); save(state); render(); scheduleAll() }
+    function markFimAlm(t=null){ if(!t) t=nowIso(); state.fimAlm=t; pushHistory({type:'fimAlm',time:t}); save(state); render(); scheduleAll() }
+    function markSaida(t=null){ if(!t) t=nowIso(); state.saida=t; pushHistory({type:'saida',time:t}); save(state); render(); scheduleAll() }
     function resetDia(){ if(!confirm('Confirma reset do dia?')) return; state.entrada=null; state.inicioAlm=null; state.fimAlm=null; state.saida=null; state.history=[]; save(state); render(); scheduleAll() }
 
-    // manual marker dialog
-    function openManual(){ const tipo = prompt('Tipo (entrada, inicioAlm, fimAlm, saida):')
-      if(!tipo) return; const time = prompt('Hora no formato HH:MM (24h) — deixe vazio para agora')
-      let iso
-      if(!time) iso = nowIso()
-      else{
-        const [hh,mm] = time.split(':'); const d = new Date(); d.setHours(parseInt(hh||0),parseInt(mm||0),0,0); iso = d.toISOString()
-      }
-      if(tipo==='entrada') markEntrada(iso)
-      if(tipo==='inicioAlm') markInicioAlm(iso)
-      if(tipo==='fimAlm') markFimAlm(iso)
-      if(tipo==='saida') markSaida(iso)
+    function openManual(){ const tipo = prompt('Tipo (entrada, inicioAlm, fimAlm, saida):'); if(!tipo) return; const time = prompt('Hora HH:MM (vazio = agora)'); let iso; if(!time) iso=nowIso(); else{ const [hh,mm]=time.split(':'); const d=new Date(); d.setHours(parseInt(hh||0),parseInt(mm||0),0,0); iso=d.toISOString() } if(tipo==='entrada') markEntrada(iso); if(tipo==='inicioAlm') markInicioAlm(iso); if(tipo==='fimAlm') markFimAlm(iso); if(tipo==='saida') markSaida(iso); }
+
+    function getLunchDurationMs(){ if(!state.inicioAlm) return 0; const end = state.fimAlm?new Date(state.fimAlm):new Date(); return Math.max(0,end-new Date(state.inicioAlm)) }
+    function calcRecommendedExit(){ if(!state.entrada) return null; const entrada=new Date(state.entrada); const workMs=8*60*60*1000; let lunchMs=0; if(state.inicioAlm && state.fimAlm) lunchMs=new Date(state.fimAlm)-new Date(state.inicioAlm); if(state.inicioAlm && !state.fimAlm) lunchMs=new Date()-new Date(state.inicioAlm); const exit=new Date(entrada.getTime()+workMs+lunchMs); return exit }
+
+    function scheduleAll(){ if(window._pontoTimers) window._pontoTimers.forEach(clearTimeout); window._pontoTimers=[]; const exit=calcRecommendedExit(); if(exit){ const now=new Date(); const delta=exit-now; if(delta>0){ const warnMs=cfg.leaveWarnMin*60*1000; const tWarn=delta-warnMs; if(tWarn>0) window._pontoTimers.push(setTimeout(()=>{ triggerLeaveWarning(exit) }, tWarn)); window._pontoTimers.push(setTimeout(()=>{ triggerLeaveWarning(exit,true) }, delta)) } }
+      if(state.inicioAlm && !state.fimAlm){ const start=new Date(state.inicioAlm); const limit=start.getTime()+cfg.lunchLimitMin*60*1000; const now=Date.now(); const delta=limit-now; if(delta>0) window._pontoTimers.push(setTimeout(()=>{ triggerLunchLimit() }, delta)); else triggerLunchLimit() }
+      if(cfg.meeting){ const [h,m]=cfg.meeting.split(':'); if(h!==undefined){ const d=new Date(); d.setHours(parseInt(h),parseInt(m),0,0); const dd=d.getTime()-Date.now(); if(dd>0) window._pontoTimers.push(setTimeout(()=>{ triggerMeetingReminder(cfg.meeting) }, dd)) } }
     }
 
-    // ---------- calculations ----------
-    function getLunchDurationMs(){ if(!state.inicioAlm) return 0; const end = state.fimAlm ? new Date(state.fimAlm) : new Date(); return Math.max(0, end - new Date(state.inicioAlm)) }
-    function calcRecommendedExit(){ if(!state.entrada) return null; const entrada = new Date(state.entrada); // jornada 8h
-      const workMs = 8 * 60 * 60 * 1000
-      // if lunch already finished, account for actual lunch duration
-      let lunchMs = 0
-      if(state.inicioAlm && state.fimAlm) lunchMs = new Date(state.fimAlm) - new Date(state.inicioAlm)
-      // if lunch started but not finished, assume current duration so far (user might want to come back)
-      if(state.inicioAlm && !state.fimAlm) lunchMs = new Date() - new Date(state.inicioAlm)
-      const exit = new Date(entrada.getTime() + workMs + lunchMs)
-      return exit
-    }
+    function triggerLunchLimit(){ notify('Almoço: limite atingido','Você atingiu o limite configurado de almoço. Marque retorno.'); playTone() }
+    function triggerMeetingReminder(time){ notify('Lembrete: reunião',`Reunião às ${time}`); playTone() }
+    function triggerLeaveWarning(exit,force=false){ const t=new Date(exit); const msg = force?`Hora de sair (${t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})})`:`Faltam ${cfg.leaveWarnMin} minutos para sua saída às ${t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`; notify('Saída',msg); playTone() }
 
-    function scheduleAll(){ // clear previous timers by using timeouts stored
-      // simple approach: clear all timeouts using array
-      if(window._pontoTimers) window._pontoTimers.forEach(clearTimeout)
-      window._pontoTimers = []
+    function render(){ entradaDisplay.textContent = state.entrada?fmtTime(state.entrada):'--:--'; const exit=calcRecommendedExit(); saidaRecomendada.textContent = exit?exit.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'--:--'; if(exit){ const diffMs=new Date(exit)-new Date(); if(diffMs>0){ const mins=Math.ceil(diffMs/60000); timeRemaining.textContent = `Faltam ${mins} min` } else timeRemaining.textContent='Jornada concluída' } else timeRemaining.textContent=''; renderHistory(); }
 
-      const exit = calcRecommendedExit()
-      if(exit){
-        const now = new Date(); const delta = exit - now
-        if(delta>0){
-          // schedule leave-warning
-          const warnMs = cfg.leaveWarnMin * 60 * 1000
-          const tWarn = delta - warnMs
-          if(tWarn>0){ window._pontoTimers.push(setTimeout(()=>{ triggerLeaveWarning(exit) }, tWarn)) }
-          // schedule final notification at exit
-          window._pontoTimers.push(setTimeout(()=>{ triggerLeaveWarning(exit,true) }, delta))
-        }
-      }
+    function renderHistory(){ historyEl.innerHTML=''; const map={entrada:'Entrada', inicioAlm:'Início Almoço', fimAlm:'Fim Almoço', saida:'Saída'}; Object.keys(map).forEach(k=>{ const v=state[k]; const div=document.createElement('div'); div.className='entry'; div.innerHTML=`<div><div class="muted">${map[k]}</div><div>${v?fmtTime(v):'--:--'}</div></div><div><button class="small" data-type="${k}">Editar</button></div>`; historyEl.appendChild(div) }); logEl.innerHTML=''; state.history.forEach(h=>{ const d=document.createElement('div'); d.className='entry'; d.innerHTML = `<div>${h.type} — ${new Date(h.time).toLocaleString()}</div><div><button class="small" data-remove="${h.time}">X</button></div>`; logEl.appendChild(d) }) }
 
-      // lunch limit warning
-      if(state.inicioAlm && !state.fimAlm){
-        const start = new Date(state.inicioAlm)
-        const limit = start.getTime() + cfg.lunchLimitMin*60*1000
-        const now = new Date().getTime()
-        const delta = limit - now
-        if(delta>0){ window._pontoTimers.push(setTimeout(()=>{ triggerLunchLimit() }, delta)) } else { triggerLunchLimit() }
-      }
+    function exportJson(){ const filename=`ponto-${todayKey()}.json`; const blob=new Blob([localStorage.getItem(KEY)||'{}'], {type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url) }
+    function exportFile(){ const payload={cfg:cfg,state:state,exportedAt:new Date().toISOString()}; const blob=new Blob([JSON.stringify(payload,null,2)], {type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`ponto-backup-${todayKey()}.json`; a.click() }
+    function importFile(file){ const reader=new FileReader(); reader.onload=e=>{ try{ const parsed=JSON.parse(e.target.result); if(parsed.state){ state=parsed.state; save(state) } if(parsed.cfg){ cfg=parsed.cfg; saveCfg(cfg); applyCfgToUI() } render(); scheduleAll(); alert('Importação concluída') }catch(err){ alert('Arquivo inválido') } }; reader.readAsText(file) }
 
-      // meeting reminder
-      if(cfg.meeting){
-        const [h,m] = cfg.meeting.split(':')
-        if(h!==undefined){ const d = new Date(); d.setHours(parseInt(h),parseInt(m),0,0); const dd = d.getTime()-Date.now(); if(dd>0) window._pontoTimers.push(setTimeout(()=>{ triggerMeetingReminder(cfg.meeting) }, dd)) }
-      }
-    }
-
-    function triggerLunchLimit(){ notify('Almoço: limite atingido','Você atingiu o limite configurado de almoço. Marque retorno.'); if(cfg.nag==='on') playTone(); else playTone(); }
-    function triggerMeetingReminder(time){ notify('Lembrete: reunião',`Reunião programada às ${time}`); if(cfg.nag==='on') playTone(); else playTone(); }
-    function triggerLeaveWarning(exit, force=false){ const t = new Date(exit); const msg = force ? `Hora de sair (${fmtTime(exit)})` : `Faltam ${cfg.leaveWarnMin} minutos para sua saída às ${fmtTime(exit)}`
-      notify('Saída', msg);
-      if(cfg.nag==='on' || force) playTone();
-    }
-
-    // ---------- render ----------
-    function render(){
-      entradaDisplay.textContent = state.entrada ? fmtTime(state.entrada) : '--:--'
-      const exit = calcRecommendedExit()
-      saidaRecomendada.textContent = exit ? exit.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '--:--'
-
-      // time remaining
-      if(exit){ const diffMs = new Date(exit) - new Date(); if(diffMs>0){ const mins = Math.ceil(diffMs/60000); timeRemaining.textContent = `Faltam ${mins} min` } else timeRemaining.textContent = 'Jornada concluída' }
-      else timeRemaining.textContent = ''
-
-      // history
-      renderHistory()
-    }
-
-    function renderHistory(){ historyEl.innerHTML = '';
-      const map = {entrada:'Entrada', inicioAlm:'Início Almoço', fimAlm:'Fim Almoço', saida:'Saída'}
-      Object.keys(map).forEach(k=>{
-        const v = state[k]
-        const div = document.createElement('div')
-        div.className = 'entry'
-        div.innerHTML = `<div><div class="muted">${map[k]}</div><div>${v?fmtTime(v):'--:--'}</div></div><div><button class="small" data-type="${k}">Editar</button></div>`
-        historyEl.appendChild(div)
-      })
-
-      // recent log
-      logEl.innerHTML = ''
-      state.history.forEach(h=>{
-        const d = document.createElement('div'); d.className='entry'; d.innerHTML = `<div>${h.type} — ${new Date(h.time).toLocaleString()}</div><div><button class="small" data-remove="${h.time}">X</button></div>`
-        logEl.appendChild(d)
-      })
-    }
-
-    // ---------- import/export ----------
-    function exportJson(){ const filename = `ponto-${todayKey()}.json`; const blob = new Blob([localStorage.getItem(KEY) || '{}'], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url) }
-
-    function exportFile(){ const payload = {cfg:cfg,state:state, exportedAt: new Date().toISOString()}; const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `ponto-backup-${todayKey()}.json`; a.click() }
-
-    function importFile(file){ const reader = new FileReader(); reader.onload = e=>{
-      try{ const parsed = JSON.parse(e.target.result);
-        if(parsed.state) { state = parsed.state; save(state) }
-        if(parsed.cfg) { cfg = parsed.cfg; saveCfg(cfg); applyCfgToUI() }
-        render(); scheduleAll(); alert('Importação concluída')
-      }catch(err){ alert('Arquivo inválido') }
-    }
-      reader.readAsText(file)
-    }
-
-    // ---------- UI wiring ----------
     byId('btnEntrada').addEventListener('click', ()=>markEntrada())
     byId('btnInicioAlm').addEventListener('click', ()=>markInicioAlm())
     byId('btnFimAlm').addEventListener('click', ()=>markFimAlm())
@@ -357,48 +262,57 @@
     byId('btnExportFile').addEventListener('click', ()=>exportFile())
     byId('inputImportFile').addEventListener('change', (e)=>{ if(e.target.files.length) importFile(e.target.files[0]) })
 
-    byId('btnSaveCfg').addEventListener('click', ()=>{
-      cfg.lunchLimitMin = parseInt(byId('cfgLunchLimit').value||120)
-      cfg.leaveWarnMin = parseInt(byId('cfgLeaveWarn').value||15)
-      cfg.tone = byId('cfgTone').value
-      cfg.nag = byId('cfgNag').value
-      cfg.meeting = byId('cfgMeeting').value
-      saveCfg(cfg)
-      scheduleAll()
-      alert('Configurações salvas')
-    })
+    byId('btnSaveCfg').addEventListener('click', ()=>{ cfg.lunchLimitMin = parseInt(byId('cfgLunchLimit').value||120); cfg.leaveWarnMin = parseInt(byId('cfgLeaveWarn').value||15); cfg.tone = byId('cfgTone').value; cfg.nag = byId('cfgNag').value; cfg.meeting = byId('cfgMeeting').value; saveCfg(cfg); setAudioSource(); scheduleAll(); alert('Configurações salvas') })
     byId('btnResetCfg').addEventListener('click', ()=>{ if(confirm('Resetar configurações?')){ cfg = defaults.cfg; saveCfg(cfg); applyCfgToUI() } })
+    byId('btnPlayTone').addEventListener('click', ()=>{ playTone(); setTimeout(()=>stopTone(),3000) })
 
     byId('btnImport').addEventListener('click', ()=>{ const raw = prompt('Cole aqui o JSON exportado'); try{ const parsed = JSON.parse(raw); if(parsed.state){ state = parsed.state; save(state);} if(parsed.cfg){ cfg = parsed.cfg; saveCfg(cfg);} render(); scheduleAll(); alert('Import concluído') }catch(e){ alert('JSON inválido') } })
 
-    // edits from history
-    historyEl.addEventListener('click', e=>{ if(e.target.tagName==='BUTTON'){ const t = e.target.dataset.type; const time = prompt('Nova hora HH:MM — vazio = remover'); if(time==='') { state[t]=null; save(state); render(); scheduleAll(); return } if(!time) return; const [hh,mm]=time.split(':'); const d=new Date(); d.setHours(parseInt(hh),parseInt(mm),0,0); state[t]=d.toISOString(); save(state); render(); scheduleAll(); } })
-
-    // remove history item
-    logEl.addEventListener('click', e=>{ if(e.target.tagName==='BUTTON'){ const ts = e.target.dataset.remove; state.history = state.history.filter(h=>h.time!==ts); save(state); render(); } })
-
-    // file import input
+    historyEl.addEventListener('click', e=>{ if(e.target.tagName==='BUTTON'){ const t=e.target.dataset.type; const time=prompt('Nova hora HH:MM — vazio = remover'); if(time===''){ state[t]=null; save(state); render(); scheduleAll(); return } if(!time) return; const [hh,mm]=time.split(':'); const d=new Date(); d.setHours(parseInt(hh),parseInt(mm),0,0); state[t]=d.toISOString(); save(state); render(); scheduleAll(); } })
+    logEl.addEventListener('click', e=>{ if(e.target.tagName==='BUTTON'){ const ts=e.target.dataset.remove; state.history=state.history.filter(h=>h.time!==ts); save(state); render(); } })
     byId('inputImportFile').addEventListener('change', e=>{ if(e.target.files && e.target.files[0]) importFile(e.target.files[0]) })
 
-    // apply cfg UI
-    function applyCfgToUI(){ byId('cfgLunchLimit').value = cfg.lunchLimitMin; byId('cfgLeaveWarn').value = cfg.leaveWarnMin; byId('cfgTone').value = cfg.tone; byId('cfgNag').value = cfg.nag; byId('cfgMeeting').value = cfg.meeting }
+    function applyCfgToUI(){ byId('cfgLunchLimit').value = cfg.lunchLimitMin; byId('cfgLeaveWarn').value = cfg.leaveWarnMin; byId('cfgTone').value = cfg.tone||'01.mp3'; byId('cfgNag').value = cfg.nag||'off'; byId('cfgMeeting').value = cfg.meeting||'' }
 
-    // request notification permission on first run
-    if('Notification' in window && Notification.permission === 'default') Notification.requestPermission().then(()=>{})
-
-    // stop tone when user interacts
+    if('Notification' in window && Notification.permission==='default') Notification.requestPermission().then(()=>{})
     document.addEventListener('click', ()=>{ stopTone() })
 
-    // init
     applyCfgToUI(); render(); scheduleAll();
-
-    // keep timers alive if page hidden by using visibilitychange
     document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') scheduleAll() })
-
-    // support for progressive web app / add to home screen: advise user in UI (no service worker in this repo)
-
-    // small heuristic: reschedule on load
     window.addEventListener('load', ()=> scheduleAll())
+
+    // custom tone upload
+    byId('inputToneFile').addEventListener('change', e=>{
+      const f = e.target.files && e.target.files[0]; if(!f) return; const reader=new FileReader(); reader.onload = ev=>{ cfg.customTone = ev.target.result; cfg.tone = 'custom'; saveCfg(cfg); applyCfgToUI(); alert('Toque custom salvo') }; reader.readAsDataURL(f)
+    })
+
+    // allow selecting custom option in select
+    byId('cfgTone').addEventListener('change', (e)=>{ if(e.target.value!=='custom') { cfg.tone=e.target.value; saveCfg(cfg); setAudioSource() } })
+
+    // draggable split
+    (function(){ const handle = byId('dragHandle'); const h = handle; let dragging=false; let startY=0; let startHeightLeft=140; h.addEventListener('pointerdown', e=>{ dragging=true; startY=e.clientY; const leftBox = historyEl; startHeightLeft = leftBox.clientHeight; h.setPointerCapture(e.pointerId) }); window.addEventListener('pointermove', e=>{ if(!dragging) return; const dy = e.clientY - startY; const newH = Math.max(60, startHeightLeft + dy); historyEl.style.height = newH + 'px'; logEl.style.height = newH + 'px' }); window.addEventListener('pointerup', e=>{ dragging=false }) })()
+
+    // debug mode by typing 'debug'
+    (function(){ let buf=''; const target='debug'; const dbgPanel = byId('debugPanel'); let debug=false; document.addEventListener('keydown', e=>{ if(e.key.length===1) buf += e.key.toLowerCase(); else if(e.key==='Backspace') buf = buf.slice(0,-1); if(buf.length>10) buf=buf.slice(-10); if(buf.endsWith(target)){ debug=!debug; buf=''; if(debug){ dbgPanel.classList.remove('hidden'); alert('Debug habilitado') } else { dbgPanel.classList.add('hidden'); alert('Debug desabilitado') } } })
+
+      byId('btnTriggerNotif').addEventListener('click', ()=>notify('DEBUG','Teste de notificação'))
+      byId('btnTriggerTone').addEventListener('click', ()=>{ playTone(); setTimeout(()=>stopTone(),5000) })
+      byId('btnApplyDbg').addEventListener('click', ()=>{
+        const e = byId('dbgEntrada').value; const ia = byId('dbgInicioAlm').value; const fa = byId('dbgFimAlm').value; const s = byId('dbgSaida').value;
+        function toIso(timeStr){ if(!timeStr) return null; const [hh,mm]=timeStr.split(':'); const d=new Date(); d.setHours(parseInt(hh),parseInt(mm),0,0); return d.toISOString() }
+        if(e) state.entrada = toIso(e); if(ia) state.inicioAlm = toIso(ia); if(fa) state.fimAlm = toIso(fa); if(s) state.saida = toIso(s); save(state); render(); scheduleAll(); alert('Valores de debug aplicados')
+      })
+
+    // manifest + service worker created dynamically so no extra files required
+    (function(){ const manifest = { name:'Ponto Reminder', short_name:'Ponto', start_url:'.', display:'standalone', background_color:'#07101a', theme_color:'#06d6a0', icons:[{src:'assets/icon-192.png',sizes:'192x192',type:'image/png'},{src:'assets/icon-512.png',sizes:'512x512',type:'image/png'}] }
+      const manifestBlob = new Blob([JSON.stringify(manifest)], {type:'application/json'}); const manifestURL = URL.createObjectURL(manifestBlob); const link = document.querySelector('link[rel="manifest"]'); if(link) link.href = manifestURL
+      if('serviceWorker' in navigator){ const swCode = `self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>self.clients.claim());self.addEventListener('fetch',e=>{});`; const swBlob = new Blob([swCode], {type:'application/javascript'}); const swUrl = URL.createObjectURL(swBlob); navigator.serviceWorker.register(swUrl).catch(()=>{}) }
+    })()
+
+    // utilities
+    byId('dateNow').textContent = new Date().toLocaleDateString()
+    function setAudioSource(){ if(cfg.tone==='custom' && cfg.customTone) audio.src = cfg.customTone; else audio.src = `assets/ring/${cfg.tone}` }
+    setAudioSource();
   </script>
 </body>
 </html>
