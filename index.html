@@ -9,11 +9,11 @@
     :root{--bg:#07101a;--card:#0f1724;--accent:#06d6a0;--muted:#9aa6b2}
     *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
     html,body{height:100%;margin:0;background:var(--bg);color:#e6eef6}
-    .wrap{max-width:900px;margin:6px auto;padding:10px}
+    .wrap{max-width:920px;margin:8px auto;padding:10px}
     header{display:flex;align-items:center;gap:10px}
     h1{margin:0;font-size:18px}
     .compact-row{display:flex;align-items:center;gap:8px}
-    .card{background:var(--card);padding:10px;border-radius:10px}
+    .card{background:var(--card);padding:10px;border-radius:10px;box-shadow:0 6px 18px rgba(2,6,23,.6)}
     button{background:transparent;border:1px solid rgba(255,255,255,.06);color:inherit;padding:8px 10px;border-radius:8px;cursor:pointer}
     button.primary{background:linear-gradient(90deg,var(--accent),#00b894);color:#02111a;border:0}
     .small{padding:6px 8px;font-size:13px}
@@ -49,7 +49,10 @@
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
             <div class="muted">Entrada</div>
-            <div id="entradaDisplay" style="font-size:24px;font-weight:700">--:--</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div id="entradaDisplay" style="font-size:24px;font-weight:700">--:--</div>
+              <button id="btnRemoveEntrada" class="small" type="button" title="Remover entrada" style="padding:4px 6px">Remover</button>
+            </div>
           </div>
           <div style="text-align:right">
             <div class="muted">Saída recomendada</div>
@@ -62,8 +65,8 @@
 
         <div class="row" style="flex-wrap:wrap">
           <button id="btnEntrada" class="primary" type="button">Entrada</button>
-          <button id="btnInicioAlm" type="button">Início Almoço</button>
-          <button id="btnFimAlm" type="button">Fim Almoço</button>
+          <button id="btnInicioAlm" type="button">Início Alm</button>
+          <button id="btnFimAlm" type="button">Fim Alm</button>
           <button id="btnSaida" type="button">Saída</button>
           <button id="btnReset" type="button">Reset</button>
           <div class="spacer"></div>
@@ -110,6 +113,8 @@
 
         </div>
 
+        <div id="lunchStatus" class="muted" style="margin-top:6px"></div>
+
         <div style="margin-top:10px;display:flex;gap:8px">
           <button id="btnSaveCfg" class="small" type="button">Salvar</button>
           <button id="btnResetCfg" class="small" type="button">Reset</button>
@@ -133,6 +138,30 @@
 
   <audio id="audioPlayer" preload="auto"></audio>
 
+  <!-- Modal manual -->
+  <div id="manualModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:9999">
+    <div style="background:var(--card);padding:14px;border-radius:10px;min-width:280px;max-width:95%;">
+      <h3 style="margin:0 0 8px 0">Marcação manual</h3>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <label class="muted">Tipo</label>
+        <select id="manualType" style="padding:8px;border-radius:6px">
+          <option value="entrada">Entrada</option>
+          <option value="inicioAlm">Início Almoço</option>
+          <option value="fimAlm">Fim Almoço</option>
+          <option value="saida">Saída</option>
+        </select>
+
+        <label class="muted">Hora (HH:MM) — deixe vazio para Agora</label>
+        <input id="manualTime" type="time" style="padding:8px;border-radius:6px" />
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px">
+          <button id="manualCancel" class="small" type="button">Cancelar</button>
+          <button id="manualSave" class="small primary" type="button">Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     document.addEventListener('DOMContentLoaded', function(){
       try{
@@ -140,28 +169,37 @@
         var CFG_KEY = 'ponto.reminder.cfg.v1';
         var MAX_HISTORY_DAYS = 10;
 
-        function todayKey(){ var d=new Date(); return d.toISOString().slice(0,10); }
+        function todayKey(){ var d = new Date(); return d.toISOString().slice(0,10); }
 
         var defaults = { cfg: { lunchLimitMin:120, leaveWarnMin:15, tone:'01.mp3', nag:'off', meeting:'' } };
 
-        function loadCfg(){ var raw=localStorage.getItem(CFG_KEY); return raw?JSON.parse(raw):defaults.cfg }
-        function saveCfg(cfg){ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)) }
+        function loadCfg(){ var raw = localStorage.getItem(CFG_KEY); return raw ? JSON.parse(raw) : defaults.cfg; }
+        function saveCfg(cfg){ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
 
-        function loadAll(){ var raw=localStorage.getItem(KEY); if(!raw) return {dates:{}, meta:{}}; try{ return JSON.parse(raw) }catch(e){ return {dates:{}, meta:{}} } }
-        function saveAll(obj){ var keys = Object.keys(obj.dates).sort().reverse().slice(0,MAX_HISTORY_DAYS); var pruned = {}; for(var i=0;i<keys.length;i++){ pruned[keys[i]]=obj.dates[keys[i]]; } obj.dates = pruned; obj.meta = obj.meta || {}; obj.meta.savedAt = new Date().toISOString(); localStorage.setItem(KEY, JSON.stringify(obj)); }
+        function loadAll(){ var raw = localStorage.getItem(KEY); if(!raw) return {dates:{}, meta:{}}; try{ return JSON.parse(raw); }catch(e){ return {dates:{}, meta:{}}; } }
+        function saveAll(obj){
+          var keys = Object.keys(obj.dates).sort().reverse().slice(0,MAX_HISTORY_DAYS);
+          var pruned = {};
+          for(var i=0;i<keys.length;i++){ pruned[keys[i]] = obj.dates[keys[i]]; }
+          obj.dates = pruned;
+          obj.meta = obj.meta || {};
+          obj.meta.savedAt = new Date().toISOString();
+          localStorage.setItem(KEY, JSON.stringify(obj));
+        }
 
         var storage = loadAll();
         var cfg = loadCfg();
 
-        function ensureToday(){ var k=todayKey(); if(!storage.dates[k]) storage.dates[k] = { entrada:null,inicioAlm:null,fimAlm:null,saida:null,history:[] } }
+        function ensureToday(){ var k = todayKey(); if(!storage.dates[k]) storage.dates[k] = { entrada:null, inicioAlm:null, fimAlm:null, saida:null, history:[] }; }
         ensureToday();
 
         var audio = document.getElementById('audioPlayer');
-        function setAudioSource(){ try{ audio.src = 'assets/ring/' + cfg.tone; }catch(e){} }
-        function playTone(){ try{ setAudioSource(); audio.loop = (cfg.nag==='on'); try{ audio.currentTime = 0; audio.play(); }catch(e){} }catch(e){} }
-        function stopTone(){ try{ audio.pause(); audio.currentTime=0; audio.loop=false }catch(e){} }
 
-        function notify(title, body){ try{ if('Notification' in window){ if(Notification.permission==='granted'){ try{ new Notification(title, {body: body, requireInteraction: (cfg.nag==='on')}); }catch(e){} } } if(navigator.vibrate) navigator.vibrate([200,100,200]); }catch(e){} }
+        function setAudioSource(){ try{ audio.src = 'assets/ring/' + cfg.tone; }catch(e){} }
+        function playTone(){ try{ setAudioSource(); audio.loop = (cfg.nag === 'on'); try{ audio.currentTime = 0; audio.play(); }catch(e){} }catch(e){} }
+        function stopTone(){ try{ audio.pause(); audio.currentTime = 0; audio.loop = false; }catch(e){} }
+
+        function notify(title, body){ try{ if('Notification' in window){ if(Notification.permission === 'granted'){ try{ new Notification(title, { body: body, requireInteraction: (cfg.nag === 'on') }); }catch(e){} } } if(navigator.vibrate) navigator.vibrate([200,100,200]); }catch(e){} }
 
         var byId = function(id){ return document.getElementById(id); };
         var entradaDisplay = byId('entradaDisplay');
@@ -170,104 +208,211 @@
         var logEl = byId('log');
         var historyEl = byId('history');
 
-        function fmtTime(d){ if(!d) return '--:--'; var dt=new Date(d); return dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }
+        function fmtTime(d){ if(!d) return '--:--'; var dt = new Date(d); return dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
         function nowIso(){ return (new Date()).toISOString(); }
 
         function getStateFor(dateKey){ return storage.dates[dateKey]; }
-        function pushHistory(dateKey, evt){ var s = getStateFor(dateKey); s.history.unshift(evt); if(s.history.length>300) s.history.pop(); saveAll(storage); renderHistory(); }
+        function pushHistory(dateKey, evt){ var s = getStateFor(dateKey); s.history.unshift(evt); if(s.history.length > 300) s.history.pop(); saveAll(storage); renderHistory(); }
 
-        function markEntrada(t){ try{ var k=todayKey(); ensureToday(); if(!t) t=nowIso(); storage.dates[k].entrada = t; pushHistory(k, {type:'entrada', time: t}); saveAll(storage); render(); scheduleAll(); }catch(e){ reportError(e); } }
-        function markInicioAlm(t){ try{ var k=todayKey(); ensureToday(); if(!t) t=nowIso(); storage.dates[k].inicioAlm = t; pushHistory(k, {type:'inicioAlm', time: t}); saveAll(storage); render(); scheduleAll(); }catch(e){ reportError(e); } }
-        function markFimAlm(t){ try{ var k=todayKey(); ensureToday(); if(!t) t=nowIso(); storage.dates[k].fimAlm = t; pushHistory(k, {type:'fimAlm', time: t}); saveAll(storage); render(); scheduleAll(); }catch(e){ reportError(e); } }
-        function markSaida(t){ try{ var k=todayKey(); ensureToday(); if(!t) t=nowIso(); storage.dates[k].saida = t; pushHistory(k, {type:'saida', time: t}); saveAll(storage); render(); scheduleAll(); }catch(e){ reportError(e); } }
+        function clearFieldToday(fieldName){
+          try{
+            var k = todayKey();
+            ensureToday();
+            var s = getStateFor(k);
+            if(!s) return;
+            if(!s[fieldName]) { alert('Nada para remover em ' + fieldName); return; }
+            if(!confirm('Remover ' + fieldName + ' do dia ' + k + '?')) return;
+            s[fieldName] = null;
+            pushHistory(k, { type: 'removed_' + fieldName, time: nowIso(), note: 'Removido manualmente' });
+            saveAll(storage);
+            render();
+            scheduleAll();
+          }catch(e){ reportError(e); }
+        }
 
-        function resetDia(){ try{ if(!confirm('Confirma reset do dia?')) return; var k=todayKey(); storage.dates[k] = {entrada:null,inicioAlm:null,fimAlm:null,saida:null,history:[]}; saveAll(storage); render(); scheduleAll(); }catch(e){ reportError(e); } }
+        function markEntrada(t){
+          try{
+            var k = todayKey(); ensureToday();
+            var s = getStateFor(k);
+            if(s && s.entrada){
+              if(!confirm('Já existe uma entrada às ' + fmtTime(s.entrada) + '. Deseja sobrescrever?')) return;
+            }
+            if(!t) t = nowIso();
+            storage.dates[k].entrada = t;
+            pushHistory(k, { type:'entrada', time: t });
+            saveAll(storage);
+            render();
+            scheduleAll();
+          }catch(e){ reportError(e); }
+        }
 
-        function openManual(){ try{ var tipo = prompt('Tipo (entrada, inicioAlm, fimAlm, saida):'); if(!tipo) return; var time = prompt('Hora HH:MM (vazio = agora)'); var iso; if(!time) iso=nowIso(); else{ var parts = time.split(':'); var hh = parseInt(parts[0]||0,10); var mm = parseInt(parts[1]||0,10); var d = new Date(); d.setHours(hh,mm,0,0); iso = d.toISOString(); } if(tipo==='entrada') markEntrada(iso); if(tipo==='inicioAlm') markInicioAlm(iso); if(tipo==='fimAlm') markFimAlm(iso); if(tipo==='saida') markSaida(iso); }catch(e){ reportError(e); } }
+        function markInicioAlm(t){
+          try{
+            var k = todayKey(); ensureToday();
+            var s = getStateFor(k);
+            if(s && s.inicioAlm){
+              if(!confirm('Já iniciou almoço às ' + fmtTime(s.inicioAlm) + '. Deseja sobrescrever?')) return;
+            }
+            if(!t) t = nowIso();
+            storage.dates[k].inicioAlm = t;
+            pushHistory(k, { type:'inicioAlm', time: t });
+            saveAll(storage);
+            render();
+            scheduleAll();
+          }catch(e){ reportError(e); }
+        }
 
-        function getLunchDurationMsFor(dateKey){ try{ var s = getStateFor(dateKey); if(!s || !s.inicioAlm) return 0; var end = s.fimAlm? new Date(s.fimAlm): new Date(); return Math.max(0, end - new Date(s.inicioAlm)); }catch(e){ return 0; } }
+        function markFimAlm(t){
+          try{
+            var k = todayKey(); ensureToday();
+            var s = getStateFor(k);
+            if(s && s.fimAlm){
+              if(!confirm('Já encerrou almoço às ' + fmtTime(s.fimAlm) + '. Deseja sobrescrever?')) return;
+            }
+            if(!t) t = nowIso();
+            storage.dates[k].fimAlm = t;
+            pushHistory(k, { type:'fimAlm', time: t });
+            saveAll(storage);
+            render();
+            scheduleAll();
+          }catch(e){ reportError(e); }
+        }
+
+        function markSaida(t){
+          try{
+            var k = todayKey(); ensureToday();
+            var s = getStateFor(k);
+            if(s && s.saida){
+              if(!confirm('Já existe uma saída às ' + fmtTime(s.saida) + '. Deseja sobrescrever?')) return;
+            }
+            if(!t) t = nowIso();
+            storage.dates[k].saida = t;
+            pushHistory(k, { type:'saida', time: t });
+            saveAll(storage);
+            render();
+            scheduleAll();
+          }catch(e){ reportError(e); }
+        }
+
+        function resetDia(){ try{ if(!confirm('Confirma reset do dia?')) return; var k = todayKey(); storage.dates[k] = { entrada:null, inicioAlm:null, fimAlm:null, saida:null, history:[] }; saveAll(storage); render(); scheduleAll(); }catch(e){ reportError(e); } }
+
+        function openManual(){ try{ var modal = byId('manualModal'); if(modal) modal.style.display = 'flex'; }catch(e){} }
+
+        function getLunchDurationMsFor(dateKey){ try{ var s = getStateFor(dateKey); if(!s || !s.inicioAlm) return 0; var end = s.fimAlm ? new Date(s.fimAlm) : new Date(); return Math.max(0, end - new Date(s.inicioAlm)); }catch(e){ return 0; } }
         function calcRecommendedExitFor(dateKey){ try{ var s = getStateFor(dateKey); if(!s || !s.entrada) return null; var entrada = new Date(s.entrada); var workMs = 8*60*60*1000; var lunchMs = 0; if(s.inicioAlm && s.fimAlm) lunchMs = new Date(s.fimAlm) - new Date(s.inicioAlm); if(s.inicioAlm && !s.fimAlm) lunchMs = new Date() - new Date(s.inicioAlm); var exit = new Date(entrada.getTime() + workMs + lunchMs); return exit; }catch(e){ return null; } }
 
-        function scheduleAll(){ try{ if(window._pontoTimers) window._pontoTimers.forEach(function(t){ clearTimeout(t); }); window._pontoTimers = []; var k = todayKey(); var exit = calcRecommendedExitFor(k); if(exit){ var now = new Date(); var delta = exit - now; if(delta>0){ var warnMs = cfg.leaveWarnMin * 60 * 1000; var tWarn = delta - warnMs; if(tWarn>0) window._pontoTimers.push(setTimeout(function(){ triggerLeaveWarning(exit); }, tWarn)); window._pontoTimers.push(setTimeout(function(){ triggerLeaveWarning(exit, true); }, delta)); } }
-            var s = getStateFor(k);
-            if(s && s.inicioAlm && !s.fimAlm){ var start = new Date(s.inicioAlm); var limit = start.getTime() + cfg.lunchLimitMin*60*1000; var nowT = Date.now(); var delta2 = limit - nowT; if(delta2>0) window._pontoTimers.push(setTimeout(function(){ triggerLunchLimit(); }, delta2)); else triggerLunchLimit(); }
-            if(cfg.meeting){ var parts = cfg.meeting.split(':'); if(parts[0] !== undefined && parts[0] !== ''){ var d = new Date(); d.setHours(parseInt(parts[0],10), parseInt(parts[1]||0,10),0,0); var dd = d.getTime() - Date.now(); if(dd>0) window._pontoTimers.push(setTimeout(function(){ triggerMeetingReminder(cfg.meeting); }, dd)); }
-            }
-        }catch(e){ console.warn('scheduleAll failed', e); }
-        }
+        function scheduleAll(){ try{ if(window._pontoTimers) { for(var i=0;i<window._pontoTimers.length;i++){ clearTimeout(window._pontoTimers[i]); } } window._pontoTimers = []; var k = todayKey(); var exit = calcRecommendedExitFor(k); if(exit){ var now = new Date(); var delta = exit - now; if(delta > 0){ var warnMs = cfg.leaveWarnMin * 60 * 1000; var tWarn = delta - warnMs; if(tWarn > 0) window._pontoTimers.push(setTimeout(function(){ triggerLeaveWarning(exit); }, tWarn)); window._pontoTimers.push(setTimeout(function(){ triggerLeaveWarning(exit, true); }, delta)); } } var s = getStateFor(k); if(s && s.inicioAlm && !s.fimAlm){ var start = new Date(s.inicioAlm); var limit = start.getTime() + cfg.lunchLimitMin*60*1000; var nowT = Date.now(); var delta2 = limit - nowT; if(delta2 > 0) window._pontoTimers.push(setTimeout(function(){ triggerLunchLimit(); }, delta2)); else triggerLunchLimit(); } if(cfg.meeting){ var parts = cfg.meeting.split(':'); if(parts[0] !== undefined && parts[0] !== ''){ var d = new Date(); d.setHours(parseInt(parts[0],10), parseInt(parts[1]||0,10),0,0); var dd = d.getTime() - Date.now(); if(dd > 0) window._pontoTimers.push(setTimeout(function(){ triggerMeetingReminder(cfg.meeting); }, dd)); } } }catch(e){ console.warn('scheduleAll failed', e); } }
 
         function triggerLunchLimit(){ notify('Almoço: limite atingido', 'Você atingiu o limite configurado de almoço. Marque retorno.'); playTone(); }
         function triggerMeetingReminder(time){ notify('Lembrete: reunião', 'Reunião às ' + time); playTone(); }
         function triggerLeaveWarning(exit, force){ var t = new Date(exit); var msg = force ? ('Hora de sair (' + t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) + ')') : ('Faltam ' + cfg.leaveWarnMin + ' minutos para sua saída às ' + t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})); notify('Saída', msg); playTone(); }
 
-        function render(){ try{ var k = todayKey(); ensureToday(); var s = getStateFor(k); entradaDisplay.textContent = s && s.entrada ? fmtTime(s.entrada) : '--:--'; var exit = calcRecommendedExitFor(k); saidaRecomendada.textContent = exit ? exit.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '--:--'; if(exit){ var diffMs = new Date(exit) - new Date(); if(diffMs>0){ var mins = Math.ceil(diffMs/60000); timeRemaining.textContent = 'Faltam ' + mins + ' min'; } else timeRemaining.textContent = 'Jornada concluída'; } else timeRemaining.textContent = ''; renderHistory(); }catch(e){}
+        function render(){
+          try{
+            var k = todayKey();
+            ensureToday();
+            var s = getStateFor(k);
+            entradaDisplay.textContent = s && s.entrada ? fmtTime(s.entrada) : '--:--';
+            var exit = calcRecommendedExitFor(k);
+            saidaRecomendada.textContent = exit ? exit.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '--:--';
+
+            if(exit){
+              var diffMs = new Date(exit) - new Date();
+              if(diffMs > 0){
+                var mins = Math.ceil(diffMs/60000);
+                timeRemaining.textContent = 'Faltam ' + mins + ' min';
+              } else timeRemaining.textContent = 'Jornada concluída';
+            } else timeRemaining.textContent = '';
+
+            var lunchDiv = document.getElementById('lunchStatus');
+            if(lunchDiv){
+              if(s && s.inicioAlm && !s.fimAlm){
+                var start = new Date(s.inicioAlm);
+                var limitMs = start.getTime() + (cfg.lunchLimitMin * 60 * 1000);
+                var now = Date.now();
+                var delta = limitMs - now;
+                if(delta > 0){
+                  var mLeft = Math.ceil(delta/60000);
+                  lunchDiv.textContent = 'No almoço — faltam ' + mLeft + ' min até o limite';
+                } else {
+                  lunchDiv.textContent = 'Limite de almoço atingido';
+                }
+              } else if(s && s.inicioAlm && s.fimAlm){
+                var totalMin = Math.round((new Date(s.fimAlm) - new Date(s.inicioAlm))/60000);
+                lunchDiv.textContent = 'Almoço finalizado — duração: ' + totalMin + ' min';
+              } else {
+                lunchDiv.textContent = '';
+              }
+            }
+
+            renderHistory();
+          }catch(e){}
         }
 
-        function renderHistory(){ try{ historyEl.innerHTML = ''; var dates = Object.keys(storage.dates).sort().reverse().slice(0,MAX_HISTORY_DAYS); for(var i=0;i<dates.length;i++){ var dk = dates[i]; var s = storage.dates[dk]; var div = document.createElement('div'); div.className = 'entry'; div.innerHTML = '<div><div class="muted">'+dk+'</div><div>Entrada: '+(s.entrada?fmtTime(s.entrada):'--:--')+' — Saída: '+(s.saida?fmtTime(s.saida):'--:--')+'</div></div><div><button class="small" data-show="'+dk+'" type="button">Ver</button></div>'; historyEl.appendChild(div); }
-            logEl.innerHTML = ''; var todayHist = (getStateFor(todayKey()) || {history: []}).history; for(var j=0;j<todayHist.length;j++){ var h = todayHist[j]; var d = document.createElement('div'); d.className='entry'; d.innerHTML = '<div>'+h.type+' — '+(new Date(h.time)).toLocaleString()+'</div><div><button class="small" data-remove="'+h.time+'" type="button">X</button></div>'; logEl.appendChild(d); }
-        }catch(e){}
+        function renderHistory(){ try{ historyEl.innerHTML = ''; var dates = Object.keys(storage.dates).sort().reverse().slice(0,MAX_HISTORY_DAYS); for(var i=0;i<dates.length;i++){ var dk = dates[i]; var s = storage.dates[dk]; var div = document.createElement('div'); div.className = 'entry'; div.innerHTML = '<div><div class="muted">'+dk+'</div><div>Entrada: '+(s.entrada?fmtTime(s.entrada):'--:--')+' — Saída: '+(s.saida?fmtTime(s.saida):'--:--')+'</div></div><div><button class="small" data-show="'+dk+'" type="button">Ver</button></div>'; historyEl.appendChild(div); } logEl.innerHTML = ''; var todayHist = (getStateFor(todayKey()) || {history: []}).history; for(var j=0;j<todayHist.length;j++){ var h = todayHist[j]; var d = document.createElement('div'); d.className='entry'; d.innerHTML = '<div>'+h.type+' — '+(new Date(h.time)).toLocaleString()+'</div><div><button class="small" data-remove="'+h.time+'" type="button">X</button></div>'; logEl.appendChild(d); } }catch(e){} }
+
+        // safe listener util
+        function safeAddListener(id, evt, handler){
+          try{
+            var el = byId(id);
+            if(el && typeof el.addEventListener === 'function'){
+              el.addEventListener(evt, handler);
+              return true;
+            } else return false;
+          }catch(e){ return false; }
         }
 
-        historyEl.addEventListener('click', function(e){ try{ if(e.target && e.target.tagName === 'BUTTON'){ var dk = e.target.dataset.show; if(!dk) return; var s = getStateFor(dk); var msg = 'Data: ' + dk + '\n' + 'Entrada: ' + (s.entrada?fmtTime(s.entrada):'--:--') + '\n' + 'Início Alm: ' + (s.inicioAlm?fmtTime(s.inicioAlm):'--:--') + '\n' + 'Fim Alm: ' + (s.fimAlm?fmtTime(s.fimAlm):'--:--') + '\n' + 'Saída: ' + (s.saida?fmtTime(s.saida):'--:--'); alert(msg); } }catch(e){} });
+        // listeners (robustos)
+        safeAddListener('btnEntrada','click', function(){ markEntrada(); });
+        safeAddListener('btnInicioAlm','click', function(){ markInicioAlm(); });
+        safeAddListener('btnFimAlm','click', function(){ markFimAlm(); });
+        safeAddListener('btnSaida','click', function(){ markSaida(); });
+        safeAddListener('btnReset','click', function(){ resetDia(); });
 
-        logEl.addEventListener('click', function(e){ try{ if(e.target && e.target.tagName === 'BUTTON'){ var ts = e.target.dataset.remove; var k = todayKey(); var s = getStateFor(k); s.history = s.history.filter(function(h){ return h.time !== ts; }); saveAll(storage); render(); } }catch(e){} });
+        safeAddListener('btnManual','click', function(){ var modal = byId('manualModal'); if(modal) modal.style.display = 'flex'; });
+        safeAddListener('manualCancel','click', function(){ var modal = byId('manualModal'); if(modal) modal.style.display = 'none'; });
+        safeAddListener('manualSave','click', function(){ var tipoEl = byId('manualType'); var timeEl = byId('manualTime'); var tipo = tipoEl? tipoEl.value : 'entrada'; var timeVal = timeEl? timeEl.value : ''; var iso = null; if(timeVal){ var parts = timeVal.split(':'); var d = new Date(); d.setHours(parseInt(parts[0]||0,10), parseInt(parts[1]||0,10),0,0); iso = d.toISOString(); } if(tipo === 'entrada') markEntrada(iso); else if(tipo === 'inicioAlm') markInicioAlm(iso); else if(tipo === 'fimAlm') markFimAlm(iso); else if(tipo === 'saida') markSaida(iso); var modal = byId('manualModal'); if(modal) modal.style.display = 'none'; });
 
-        // wire buttons
-        byId('btnEntrada').addEventListener('click', function(){ markEntrada(); });
-        byId('btnInicioAlm').addEventListener('click', function(){ markInicioAlm(); });
-        byId('btnFimAlm').addEventListener('click', function(){ markFimAlm(); });
-        byId('btnSaida').addEventListener('click', function(){ markSaida(); });
-        byId('btnReset').addEventListener('click', function(){ resetDia(); });
-        byId('btnManual').addEventListener('click', function(){ openManual(); });
+        safeAddListener('btnClearStorage2','click', function(){ if(confirm('Limpar todo o storage?')){ localStorage.removeItem(KEY); localStorage.removeItem(CFG_KEY); storage = {dates:{}}; cfg = loadCfg(); ensureToday(); render(); alert('Storage limpo'); } });
+        safeAddListener('btnTestTone','click', function(){ playTone(); setTimeout(function(){ stopTone(); }, 3000); });
 
-        byId('btnClearStorage').addEventListener('click', function(){ if(confirm('Limpar todo o storage?')){ localStorage.removeItem(KEY); localStorage.removeItem(CFG_KEY); storage = {dates:{}}; cfg = loadCfg(); ensureToday(); render(); alert('Storage limpo'); } });
-        byId('btnClearStorage2').addEventListener('click', function(){ if(confirm('Limpar todo o storage?')){ localStorage.removeItem(KEY); localStorage.removeItem(CFG_KEY); storage = {dates:{}}; cfg = loadCfg(); ensureToday(); render(); alert('Storage limpo'); } });
+        safeAddListener('btnRemoveEntrada','click', function(){ clearFieldToday('entrada'); });
 
-        byId('btnTestTone').addEventListener('click', function(){ playTone(); setTimeout(function(){ stopTone(); }, 3000); });
+        safeAddListener('btnLunchInc','click', function(){ var el = byId('cfgLunchLimit'); if(!el) return; el.value = Math.min(480, parseInt(el.value||120,10)+5); cfg.lunchLimitMin = parseInt(el.value,10); saveCfg(cfg); scheduleAll(); });
+        safeAddListener('btnLunchDec','click', function(){ var el = byId('cfgLunchLimit'); if(!el) return; el.value = Math.max(15, parseInt(el.value||120,10)-5); cfg.lunchLimitMin = parseInt(el.value,10); saveCfg(cfg); scheduleAll(); });
+        safeAddListener('cfgLunchLimit','change', function(e){ cfg.lunchLimitMin = parseInt(e.target.value||120,10); saveCfg(cfg); scheduleAll(); });
+        safeAddListener('cfgMeeting','change', function(e){ cfg.meeting = e.target.value; saveCfg(cfg); scheduleAll(); });
+        safeAddListener('btnAddMeeting','click', function(){ cfg.meeting = byId('cfgMeeting').value; saveCfg(cfg); scheduleAll(); alert('Lembrete salvo'); });
 
-        byId('btnLunchInc').addEventListener('click', function(){ var el = byId('cfgLunchLimit'); el.value = Math.min(480, parseInt(el.value||120,10)+5); cfg.lunchLimitMin = parseInt(el.value,10); saveCfg(cfg); scheduleAll(); });
-        byId('btnLunchDec').addEventListener('click', function(){ var el = byId('cfgLunchLimit'); el.value = Math.max(15, parseInt(el.value||120,10)-5); cfg.lunchLimitMin = parseInt(el.value,10); saveCfg(cfg); scheduleAll(); });
-        byId('cfgLunchLimit').addEventListener('change', function(e){ cfg.lunchLimitMin = parseInt(e.target.value||120,10); saveCfg(cfg); scheduleAll(); });
-        byId('cfgMeeting').addEventListener('change', function(e){ cfg.meeting = e.target.value; saveCfg(cfg); scheduleAll(); });
-        byId('btnAddMeeting').addEventListener('click', function(){ cfg.meeting = byId('cfgMeeting').value; saveCfg(cfg); scheduleAll(); alert('Lembrete salvo'); });
+        safeAddListener('btnSaveCfg','click', function(){ cfg.lunchLimitMin = parseInt(byId('cfgLunchLimit').value||120,10); cfg.leaveWarnMin = parseInt(byId('cfgLeaveWarn').value||15,10); cfg.tone = byId('cfgTone').value; cfg.nag = byId('cfgNag').value; cfg.meeting = byId('cfgMeeting').value; saveCfg(cfg); setAudioSource(); scheduleAll(); alert('Configurações salvas'); });
+        safeAddListener('btnResetCfg','click', function(){ if(confirm('Resetar configurações?')){ cfg = defaults.cfg; saveCfg(cfg); applyCfgToUI(); setAudioSource(); scheduleAll(); } });
+        safeAddListener('btnPlayTone','click', function(){ playTone(); setTimeout(function(){ stopTone(); }, 3000); });
 
-        byId('btnSaveCfg').addEventListener('click', function(){ cfg.lunchLimitMin = parseInt(byId('cfgLunchLimit').value||120,10); cfg.leaveWarnMin = parseInt(byId('cfgLeaveWarn').value||15,10); cfg.tone = byId('cfgTone').value; cfg.nag = byId('cfgNag').value; cfg.meeting = byId('cfgMeeting').value; saveCfg(cfg); setAudioSource(); scheduleAll(); alert('Configurações salvas'); });
-        byId('btnResetCfg').addEventListener('click', function(){ if(confirm('Resetar configurações?')){ cfg = defaults.cfg; saveCfg(cfg); applyCfgToUI(); setAudioSource(); scheduleAll(); } });
-        byId('btnPlayTone').addEventListener('click', function(){ playTone(); setTimeout(function(){ stopTone(); }, 3000); });
-
-        // debug toggle by typing 'debug'
-        (function(){ var buf=''; var target='debug'; var dbgPanel = byId('debugPanel'); var debug=false; document.addEventListener('keydown', function(e){ try{ if(e.key && e.key.length===1) buf += e.key.toLowerCase(); else if(e.key==='Backspace') buf = buf.slice(0,-1); if(buf.length>10) buf = buf.slice(-10); if(buf.indexOf(target, buf.length-target.length) !== -1){ debug = !debug; buf = ''; if(debug){ dbgPanel.classList.remove('hidden'); alert('Debug habilitado'); } else { dbgPanel.classList.add('hidden'); alert('Debug desabilitado'); } } }catch(err){} });
-        byId('btnTriggerNotif').addEventListener('click', function(){ notify('DEBUG','Teste de notificação'); });
-        byId('btnTriggerTone').addEventListener('click', function(){ playTone(); setTimeout(function(){ stopTone(); }, 5000); });
-        byId('btnApplyDbg').addEventListener('click', function(){ var e = byId('dbgEntrada').value; var ia = byId('dbgInicioAlm').value; var fa = byId('dbgFimAlm').value; var s = byId('dbgSaida').value; function toIso(timeStr){ if(!timeStr) return null; var parts = timeStr.split(':'); var d = new Date(); d.setHours(parseInt(parts[0],10), parseInt(parts[1]||0,10),0,0); return d.toISOString(); } var k = todayKey(); ensureToday(); if(e) storage.dates[k].entrada = toIso(e); if(ia) storage.dates[k].inicioAlm = toIso(ia); if(fa) storage.dates[k].fimAlm = toIso(fa); if(s) storage.dates[k].saida = toIso(s); saveAll(storage); render(); scheduleAll(); alert('Valores de debug aplicados'); });
-
-        // install prompt
+        // install + notification
         var deferredPrompt = null;
-        window.addEventListener('beforeinstallprompt', function(e){ try{ e.preventDefault(); deferredPrompt = e; var btn = byId('btnInstall'); btn.style.display = 'inline-block'; }catch(err){} });
-        byId('btnInstall').addEventListener('click', function(){ try{ if(!deferredPrompt) return; deferredPrompt.prompt(); deferredPrompt.userChoice.then(function(choiceResult){ deferredPrompt = null; byId('btnInstall').style.display = 'none'; }); }catch(err){ reportError(err); } });
+        window.addEventListener('beforeinstallprompt', function(e){ try{ e.preventDefault(); deferredPrompt = e; var b = byId('btnInstall'); if(b) b.style.display = 'inline-block'; }catch(err){} });
+        safeAddListener('btnInstall','click', function(){ try{ if(!deferredPrompt) return; deferredPrompt.prompt(); deferredPrompt.userChoice.then(function(choiceResult){ deferredPrompt = null; var b = byId('btnInstall'); if(b) b.style.display = 'none'; }); }catch(err){ reportError(err); } });
+        safeAddListener('btnEnableNotif','click', function(){ try{ if('Notification' in window){ Notification.requestPermission().then(function(p){ alert('Permissão: ' + p); }); } else alert('Notifications API não disponível'); }catch(e){ reportError(e); } });
 
-        // manifest + service worker as blobs
-        (function(){ try{ var manifest = { name: 'Ponto Reminder', short_name: 'Ponto', start_url: '.', display: 'standalone', background_color: '#07101a', theme_color: '#06d6a0', icons: [ {src:'assets/icon-192.png', sizes:'192x192', type:'image/png'}, {src:'assets/icon-512.png', sizes:'512x512', type:'image/png'} ] };
-            var manifestBlob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
-            var manifestURL = URL.createObjectURL(manifestBlob);
-            var link = document.getElementById('appManifest'); if(link) link.setAttribute('href', manifestURL);
-            if('serviceWorker' in navigator){ var swCode = "self.addEventListener('install',function(e){self.skipWaiting()});self.addEventListener('activate',function(e){self.clients.claim()});self.addEventListener('fetch',function(e){});"; var swBlob = new Blob([swCode], {type:'application/javascript'}); var swUrl = URL.createObjectURL(swBlob); navigator.serviceWorker.register(swUrl).catch(function(){}); }
+        // manifest and SW blob
+        (function(){ try{
+          var manifest = { name:'Ponto Reminder', short_name:'Ponto', start_url:'.', display:'standalone', background_color:'#07101a', theme_color:'#06d6a0', icons:[{src:'assets/icon-192.png',sizes:'192x192',type:'image/png'},{src:'assets/icon-512.png',sizes:'512x512',type:'image/png'}] };
+          var manifestBlob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+          var manifestURL = URL.createObjectURL(manifestBlob);
+          var link = document.getElementById('appManifest'); if(link) link.setAttribute('href', manifestURL);
+          if('serviceWorker' in navigator){ var swCode = "self.addEventListener('install',function(e){self.skipWaiting()});self.addEventListener('activate',function(e){self.clients.claim()});self.addEventListener('fetch',function(e){});"; var swBlob = new Blob([swCode], {type:'application/javascript'}); var swUrl = URL.createObjectURL(swBlob); navigator.serviceWorker.register(swUrl).catch(function(){}); }
         }catch(e){ console.warn('manifest error', e); } })();
 
-        // helpers
         function applyCfgToUI(){ try{ byId('cfgLunchLimit').value = cfg.lunchLimitMin; byId('cfgLeaveWarn').value = cfg.leaveWarnMin; byId('cfgTone').value = cfg.tone || '01.mp3'; byId('cfgNag').value = cfg.nag || 'off'; byId('cfgMeeting').value = cfg.meeting || ''; }catch(e){} }
 
         applyCfgToUI(); render(); scheduleAll();
 
-        // notification enable button
-        byId('btnEnableNotif').addEventListener('click', function(){ try{ if('Notification' in window){ Notification.requestPermission().then(function(p){ alert('Permissão: ' + p); }); } else alert('Notifications API não disponível'); }catch(e){ reportError(e); } });
+        function reportError(err){ try{ console.error(err); var box = byId('errorBox'); var msg = byId('errorMsg'); if(box){ box.style.display = 'block'; if(msg) msg.textContent = err && err.message ? err.message : String(err); } }catch(e){} }
 
-        // error reporting
-        function reportError(err){ try{ console.error(err); var box = document.getElementById('errorBox'); var msg = document.getElementById('errorMsg'); if(box){ box.style.display = 'block'; if(msg) msg.textContent = err && err.message ? err.message : String(err); } }catch(e){} }
-
-        // global safety
         window.addEventListener('error', function(e){ reportError(e.error || e.message || 'Erro desconhecido'); });
         window.addEventListener('unhandledrejection', function(e){ reportError(e.reason || 'Promise rejeitada'); });
+
+        var dateNow = byId('dateNow'); if(dateNow) dateNow.textContent = (new Date()).toLocaleDateString();
 
       }catch(e){ var box = document.getElementById('errorBox'); if(box){ box.style.display = 'block'; var msg = document.getElementById('errorMsg'); if(msg) msg.textContent = e.message || String(e); } console.error(e); }
     });
