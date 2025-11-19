@@ -6,339 +6,271 @@
   <title>Ponto Reminder</title>
   <link rel="manifest" id="appManifest">
   <style>
-    :root{--bg:#07101a;--card:#0f1724;--accent:#06d6a0;--muted:#9aa6b2;--danger:#ff7675}
+    :root{--bg:#07101a;--card:#0f1724;--accent:#06d6a0;--muted:#9aa6b2}
     *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
-    html,body{height:100%;margin:0;background:linear-gradient(180deg,#03040a 0%,#07101a 100%);color:#e6eef6}
-    .wrap{max-width:980px;margin:8px auto;padding:12px}
+    html,body{height:100%;margin:0;background:var(--bg);color:#e6eef6}
+    .wrap{max-width:900px;margin:6px auto;padding:10px}
     header{display:flex;align-items:center;gap:10px}
     h1{margin:0;font-size:18px}
-    .grid{display:grid;grid-template-columns:1fr 320px;gap:10px;margin-top:10px}
-    .card{background:var(--card);padding:10px;border-radius:10px;box-shadow:0 6px 18px rgba(2,6,23,.6)}
-    .controls{display:flex;flex-wrap:wrap;gap:6px}
-    button{background:transparent;border:1px solid rgba(255,255,255,.06);color:inherit;padding:7px 10px;border-radius:8px;cursor:pointer;font-size:13px}
+    .compact-row{display:flex;align-items:center;gap:8px}
+    .card{background:var(--card);padding:10px;border-radius:10px}
+    button{background:transparent;border:1px solid rgba(255,255,255,.06);color:inherit;padding:8px 10px;border-radius:8px;cursor:pointer}
     button.primary{background:linear-gradient(90deg,var(--accent),#00b894);color:#02111a;border:0}
     .small{padding:6px 8px;font-size:13px}
-    .log{overflow:auto;margin-top:8px}
-    .entry{display:flex;justify-content:space-between;padding:8px;border-radius:8px;background:rgba(255,255,255,.02);margin-bottom:8px}
-    label{font-size:13px;color:var(--muted)}
-    input[type=time],input[type=number],select,input[type=text]{background:transparent;border:1px solid rgba(255,255,255,.04);padding:8px;border-radius:8px;color:inherit;font-size:13px}
-    .settings{display:flex;flex-direction:column;gap:8px}
-    footer{margin-top:12px;color:var(--muted);font-size:12px}
-    .top-row{display:flex;gap:8px;align-items:center}
-    .big{font-size:26px;font-weight:700}
-    .muted{color:var(--muted)}
-    .danger{color:var(--danger)}
-    .flex{display:flex;gap:8px;align-items:center}
-    .switch{display:inline-flex;align-items:center;gap:8px}
-    .file{display:flex;gap:8px;align-items:center}
-    .notice{padding:8px;border-radius:8px;background:rgba(0,0,0,.18);color:var(--muted);font-size:13px}
-    @media(max-width:720px){
-      .grid{grid-template-columns:1fr;}
-      aside{order:2}
-      .wrap{padding:10px}
-      .big{font-size:22px}
-    }
-    .split-handle{height:6px;background:linear-gradient(90deg,rgba(255,255,255,.03),rgba(255,255,255,.06));border-radius:4px;cursor:ns-resize;margin:6px 0}
-    .compact .card{padding:8px;border-radius:10px}
-    .debug-panel{background:rgba(255,255,255,0.03);padding:8px;border-radius:8px;margin-top:8px}
-    .hidden{display:none}
-    #btnInstall{display:none}
-    #status{font-size:12px;color:var(--muted);margin-left:8px}
-    #errorBox{background:#2b1010;color:#ffdede;padding:8px;border-radius:6px;margin-top:8px;display:none}
+    input,select,textarea{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);color:inherit;padding:6px;border-radius:6px}
+    .muted{color:var(--muted);font-size:13px}
+    .row{display:flex;gap:8px;align-items:center}
+    .spacer{flex:1}
+    .history-list{max-height:180px;overflow:auto;margin-top:8px}
+    @media(max-width:720px){ .wrap{padding:8px} .row{flex-direction:column;align-items:stretch} }
+    #errorBox{background:#2b1010;color:#ffdede;padding:8px;border-radius:6px;margin:8px 0;display:none}
   </style>
 </head>
 <body>
-  <div class="wrap compact" id="appWrap">
-    <header id="hdr">
+  <div class="wrap" id="appWrap">
+    <header>
       <div style="width:44px;height:44px;border-radius:8px;background:linear-gradient(135deg,#0ea5a4,#8b5cf6)"></div>
       <div style="flex:1">
-        <h1 id="title">Ponto Reminder</h1>
-        <div class="muted" id="subtitle">Hospede no GitHub Pages — funciona offline no navegador.</div>
+        <h1>Ponto Reminder</h1>
+        <div class="muted" id="dateNow">--</div>
       </div>
-      <div style="text-align:right">
-        <div class="muted">Data: <span id="dateNow"></span></div>
-        <div style="margin-top:6px;display:flex;gap:6px;justify-content:flex-end;align-items:center">
-          <button id="btnEnableNotif" class="small" type="button">Ativar Notificações</button>
-          <button id="btnInstall" class="small" type="button">Instalar</button>
-          <div id="status">Pronto</div>
+      <div>
+        <div class="compact-row">
+          <button id="btnEnableNotif" class="small" type="button">Notificações</button>
+          <button id="btnInstall" class="small" type="button" style="display:none">Instalar</button>
         </div>
       </div>
     </header>
 
     <div id="errorBox">Erro: <span id="errorMsg"></span></div>
 
-    <div class="grid">
-      <main>
-        <div class="card" id="mainCard">
-          <div class="top-row">
-            <div>
-              <div class="muted">Entrada</div>
-              <div id="entradaDisplay" class="big">--:--</div>
-            </div>
-            <div style="margin-left:auto;text-align:right">
-              <div class="muted">Saída recomendada</div>
-              <div id="saidaRecomendada" class="big">--:--</div>
-              <div id="timeRemaining" class="muted"></div>
-            </div>
+    <main style="margin-top:10px">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div class="muted">Entrada</div>
+            <div id="entradaDisplay" style="font-size:24px;font-weight:700">--:--</div>
           </div>
-
-          <div style="height:8px"></div>
-
-          <div class="controls">
-            <button id="btnEntrada" class="primary" type="button">Marcar Entrada</button>
-            <button id="btnInicioAlm" type="button">Iniciar Almoço</button>
-            <button id="btnFimAlm" type="button">Encerrar Almoço</button>
-            <button id="btnSaida" type="button">Marcar Saída</button>
-            <button id="btnReset" type="button">Reset do dia</button>
-            <div style="margin-left:auto;display:flex;gap:6px">
-              <button id="btnManual" class="small" type="button">Manual</button>
-              <button id="btnClearStorage" class="small" type="button">Limpar Storage</button>
-              <button id="btnTestTone" class="small" type="button">Testar Toque</button>
-            </div>
-          </div>
-
-          <div class="notice" id="toneNotice">Toques: 01.mp3, 02.mp3, 03.mp3 (pasta assets/ring/).</div>
-
-          <div class="split-handle" id="dragHandle" title="Arraste para ajustar histórico"></div>
-
-          <div style="display:flex;gap:10px">
-            <div style="flex:1">
-              <div class="muted">Histórico (últimos 10 dias)</div>
-              <div id="history" class="log" style="height:140px"></div>
-            </div>
-            <div style="width:140px">
-              <div class="muted">Registros</div>
-              <div id="log" class="log" style="height:140px"></div>
-            </div>
+          <div style="text-align:right">
+            <div class="muted">Saída recomendada</div>
+            <div id="saidaRecomendada" style="font-size:24px;font-weight:700">--:--</div>
+            <div id="timeRemaining" class="muted"></div>
           </div>
         </div>
 
-        <div class="card" style="margin-top:10px">
-          <h3>Configurações</h3>
-          <div class="settings">
-            <label>Limite almoço (minutos)</label>
-            <div style="display:flex;gap:6px;align-items:center">
+        <div style="height:8px"></div>
+
+        <div class="row" style="flex-wrap:wrap">
+          <button id="btnEntrada" class="primary" type="button">Entrada</button>
+          <button id="btnInicioAlm" type="button">Início Almoço</button>
+          <button id="btnFimAlm" type="button">Fim Almoço</button>
+          <button id="btnSaida" type="button">Saída</button>
+          <button id="btnReset" type="button">Reset</button>
+          <div class="spacer"></div>
+          <button id="btnManual" class="small" type="button">Manual</button>
+          <button id="btnTestTone" class="small" type="button">Testar toque</button>
+        </div>
+
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div>
+            <div class="muted">Limite almoço (min)</div>
+            <div class="row" style="margin-top:6px">
               <button id="btnLunchDec" class="small" type="button">-</button>
               <input id="cfgLunchLimit" type="number" min="15" step="5" value="120" style="width:80px" />
               <button id="btnLunchInc" class="small" type="button">+</button>
-              <div class="muted" style="font-size:13px">(ajuste rápido ou edite manualmente)</div>
-            </div>
-
-            <label>Alerta quando faltar (minutos) para saída</label>
-            <input id="cfgLeaveWarn" type="number" min="1" value="15" />
-
-            <label>Toque</label>
-            <select id="cfgTone" style="max-width:200px">
-              <option value="01.mp3">01.mp3</option>
-              <option value="02.mp3">02.mp3</option>
-              <option value="03.mp3">03.mp3</option>
-            </select>
-
-            <label>Modo chato</label>
-            <select id="cfgNag">
-              <option value="off">Desligado</option>
-              <option value="on">Ligado</option>
-            </select>
-
-            <label>Lembrete reunião (opcional)</label>
-            <div style="display:flex;gap:6px;align-items:center">
-              <input id="cfgMeeting" type="time" />
-              <button id="btnAddMeeting" class="small" type="button">Salvar</button>
-            </div>
-
-            <div style="display:flex;gap:8px;margin-top:6px">
-              <button id="btnSaveCfg" class="small" type="button">Salvar</button>
-              <button id="btnResetCfg" class="small" type="button">Reset Config</button>
-              <button id="btnPlayTone" class="small" type="button">Tocar</button>
-            </div>
-
-            <div id="debugPanel" class="debug-panel hidden">
-              <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-                <label>Debug ativo</label>
-                <button id="btnTriggerNotif" class="small" type="button">Trigger Notif</button>
-                <button id="btnTriggerTone" class="small" type="button">Trigger Tone</button>
-              </div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap">
-                <label>Forçar Entrada</label>
-                <input id="dbgEntrada" type="time" />
-                <label>Forçar Início Alm</label>
-                <input id="dbgInicioAlm" type="time" />
-                <label>Forçar Fim Alm</label>
-                <input id="dbgFimAlm" type="time" />
-                <label>Forçar Saída</label>
-                <input id="dbgSaida" type="time" />
-                <button id="btnApplyDbg" class="small" type="button">Aplicar</button>
-              </div>
             </div>
           </div>
-        </div>
-      </main>
 
-      <aside>
-        <div class="card">
-          <h3>Storage</h3>
-          <div style="display:flex;gap:8px;flex-direction:column">
-            <div class="muted">As marcações são salvas por data local. Mantemos o histórico dos últimos 10 dias.</div>
-            <button id="btnClearStorage2" class="small" type="button">Limpar Storage</button>
+          <div>
+            <div class="muted">Aviso antes da saída (min)</div>
+            <input id="cfgLeaveWarn" type="number" min="1" value="15" style="width:80px" />
           </div>
 
-          <hr style="opacity:.06;margin:12px 0" />
-          <div class="muted">Dicas:</div>
-          <ul class="muted">
-            <li>Permita notificações no navegador.</li>
-            <li>Use "Adicionar à tela inicial" ou o botão Instalar para ter o app como atalho.</li>
-          </ul>
-        </div>
-      </aside>
-    </div>
+          <div>
+            <div class="muted">Toque</div>
+            <select id="cfgTone" style="width:100px">
+              <option value="01.mp3">01</option>
+              <option value="02.mp3">02</option>
+              <option value="03.mp3">03</option>
+            </select>
+          </div>
 
-    <footer>Hospede em GitHub Pages: coloque index.html na raiz e a pasta assets/ring/ com 01.mp3,02.mp3,03.mp3.</footer>
+          <div>
+            <div class="muted">Modo chato</div>
+            <select id="cfgNag" style="width:100px">
+              <option value="off">Off</option>
+              <option value="on">On</option>
+            </select>
+          </div>
+
+          <div>
+            <div class="muted">Lembrete reunião</div>
+            <div class="row" style="margin-top:6px"><input id="cfgMeeting" type="time" /><button id="btnAddMeeting" class="small" type="button">Salvar</button></div>
+          </div>
+
+        </div>
+
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button id="btnSaveCfg" class="small" type="button">Salvar</button>
+          <button id="btnResetCfg" class="small" type="button">Reset</button>
+          <div class="spacer"></div>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="muted">Histórico (hoje)</div>
+          <div id="log" class="history-list"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:10px">
+        <h3>Histórico — últimos 10 dias</h3>
+        <div id="history" class="history-list"></div>
+        <div style="margin-top:8px"><button id="btnClearStorage2" class="small" type="button">Limpar Storage</button></div>
+      </div>
+
+    </main>
   </div>
 
   <audio id="audioPlayer" preload="auto"></audio>
 
   <script>
-    // Wrap initialization in DOMContentLoaded and add robust error handling so listeners don't silently fail
-    document.addEventListener('DOMContentLoaded', ()=>{
+    document.addEventListener('DOMContentLoaded', function(){
       try{
-        initApp()
-      }catch(err){ reportError(err) }
-    })
+        var KEY = 'ponto.reminder.v1';
+        var CFG_KEY = 'ponto.reminder.cfg.v1';
+        var MAX_HISTORY_DAYS = 10;
 
-    function reportError(err){ console.error(err); const box = document.getElementById('errorBox'); const msg = document.getElementById('errorMsg'); box.style.display='block'; msg.textContent = err && err.message ? err.message : String(err); }
+        function todayKey(){ var d=new Date(); return d.toISOString().slice(0,10); }
 
-    function clearError(){ const box = document.getElementById('errorBox'); box.style.display='none'; document.getElementById('errorMsg').textContent=''; }
+        var defaults = { cfg: { lunchLimitMin:120, leaveWarnMin:15, tone:'01.mp3', nag:'off', meeting:'' } };
 
-    function initApp(){
-      clearError()
-      const KEY = 'ponto.reminder.v1'
-      const CFG_KEY = 'ponto.reminder.cfg.v1'
-      const MAX_HISTORY_DAYS = 10
+        function loadCfg(){ var raw=localStorage.getItem(CFG_KEY); return raw?JSON.parse(raw):defaults.cfg }
+        function saveCfg(cfg){ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)) }
 
-      function todayKey(){ const d=new Date(); return d.toISOString().slice(0,10) }
+        function loadAll(){ var raw=localStorage.getItem(KEY); if(!raw) return {dates:{}, meta:{}}; try{ return JSON.parse(raw) }catch(e){ return {dates:{}, meta:{}} } }
+        function saveAll(obj){ var keys = Object.keys(obj.dates).sort().reverse().slice(0,MAX_HISTORY_DAYS); var pruned = {}; for(var i=0;i<keys.length;i++){ pruned[keys[i]]=obj.dates[keys[i]]; } obj.dates = pruned; obj.meta = obj.meta || {}; obj.meta.savedAt = new Date().toISOString(); localStorage.setItem(KEY, JSON.stringify(obj)); }
 
-      const defaults = { cfg: { lunchLimitMin:120, leaveWarnMin:15, tone:'01.mp3', nag:'off', meeting:'' } }
+        var storage = loadAll();
+        var cfg = loadCfg();
 
-      function loadCfg(){ const raw=localStorage.getItem(CFG_KEY); return raw?JSON.parse(raw):defaults.cfg }
-      function saveCfg(cfg){ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)) }
+        function ensureToday(){ var k=todayKey(); if(!storage.dates[k]) storage.dates[k] = { entrada:null,inicioAlm:null,fimAlm:null,saida:null,history:[] } }
+        ensureToday();
 
-      function loadAll(){ const raw=localStorage.getItem(KEY); if(!raw) return {dates:{}, meta:{}}; try{ return JSON.parse(raw) }catch(e){ return {dates:{}, meta:{}} } }
-      function saveAll(obj){ const keys = Object.keys(obj.dates).sort().reverse().slice(0,MAX_HISTORY_DAYS); const pruned = {}; keys.forEach(k=>pruned[k]=obj.dates[k]); obj.dates = pruned; obj.meta = obj.meta || {}; obj.meta.savedAt = new Date().toISOString(); localStorage.setItem(KEY, JSON.stringify(obj)) }
+        var audio = document.getElementById('audioPlayer');
+        function setAudioSource(){ try{ audio.src = 'assets/ring/' + cfg.tone; }catch(e){} }
+        function playTone(){ try{ setAudioSource(); audio.loop = (cfg.nag==='on'); try{ audio.currentTime = 0; audio.play(); }catch(e){} }catch(e){} }
+        function stopTone(){ try{ audio.pause(); audio.currentTime=0; audio.loop=false }catch(e){} }
 
-      let storage = loadAll()
-      let cfg = loadCfg()
+        function notify(title, body){ try{ if('Notification' in window){ if(Notification.permission==='granted'){ try{ new Notification(title, {body: body, requireInteraction: (cfg.nag==='on')}); }catch(e){} } } if(navigator.vibrate) navigator.vibrate([200,100,200]); }catch(e){} }
 
-      function ensureToday(){ const k=todayKey(); if(!storage.dates[k]) storage.dates[k] = { entrada:null,inicioAlm:null,fimAlm:null,saida:null,history:[] } }
-      ensureToday()
+        var byId = function(id){ return document.getElementById(id); };
+        var entradaDisplay = byId('entradaDisplay');
+        var saidaRecomendada = byId('saidaRecomendada');
+        var timeRemaining = byId('timeRemaining');
+        var logEl = byId('log');
+        var historyEl = byId('history');
 
-      const audio = document.getElementById('audioPlayer')
-      function setAudioSource(){ try{ audio.src = `assets/ring/${cfg.tone}` }catch(e){ console.warn(e) } }
-      function playTone(){ try{ setAudioSource(); audio.loop = (cfg.nag==='on'); const p = audio.play(); if(p && p.catch) p.catch(()=>{}); }catch(e){ console.warn('play failed',e) } }
-      function stopTone(){ try{ audio.pause(); audio.currentTime=0; audio.loop=false }catch(e){} }
+        function fmtTime(d){ if(!d) return '--:--'; var dt=new Date(d); return dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }
+        function nowIso(){ return (new Date()).toISOString(); }
 
-      async function notify(title, body){ try{ if('Notification' in window){ if(Notification.permission==='default'){} if(Notification.permission==='granted'){ try{ new Notification(title,{body,requireInteraction:(cfg.nag==='on')}) }catch(e){} } } if(navigator.vibrate) navigator.vibrate([200,100,200]) }catch(e){ console.warn('notify failed', e) } }
+        function getStateFor(dateKey){ return storage.dates[dateKey]; }
+        function pushHistory(dateKey, evt){ var s = getStateFor(dateKey); s.history.unshift(evt); if(s.history.length>300) s.history.pop(); saveAll(storage); renderHistory(); }
 
-      const byId = id => document.getElementById(id)
-      const entradaDisplay = byId('entradaDisplay')
-      const saidaRecomendada = byId('saidaRecomendada')
-      const timeRemaining = byId('timeRemaining')
-      const logEl = byId('log')
-      const historyEl = byId('history')
+        function markEntrada(t){ try{ var k=todayKey(); ensureToday(); if(!t) t=nowIso(); storage.dates[k].entrada = t; pushHistory(k, {type:'entrada', time: t}); saveAll(storage); render(); scheduleAll(); }catch(e){ reportError(e); } }
+        function markInicioAlm(t){ try{ var k=todayKey(); ensureToday(); if(!t) t=nowIso(); storage.dates[k].inicioAlm = t; pushHistory(k, {type:'inicioAlm', time: t}); saveAll(storage); render(); scheduleAll(); }catch(e){ reportError(e); } }
+        function markFimAlm(t){ try{ var k=todayKey(); ensureToday(); if(!t) t=nowIso(); storage.dates[k].fimAlm = t; pushHistory(k, {type:'fimAlm', time: t}); saveAll(storage); render(); scheduleAll(); }catch(e){ reportError(e); } }
+        function markSaida(t){ try{ var k=todayKey(); ensureToday(); if(!t) t=nowIso(); storage.dates[k].saida = t; pushHistory(k, {type:'saida', time: t}); saveAll(storage); render(); scheduleAll(); }catch(e){ reportError(e); } }
 
-      function fmtTime(d){ if(!d) return '--:--'; const dt=new Date(d); return dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) }
-      function nowIso(){ return (new Date()).toISOString() }
+        function resetDia(){ try{ if(!confirm('Confirma reset do dia?')) return; var k=todayKey(); storage.dates[k] = {entrada:null,inicioAlm:null,fimAlm:null,saida:null,history:[]}; saveAll(storage); render(); scheduleAll(); }catch(e){ reportError(e); } }
 
-      function getStateFor(dateKey){ return storage.dates[dateKey] }
-      function pushHistory(dateKey,evt){ const s = getStateFor(dateKey); s.history.unshift(evt); if(s.history.length>300) s.history.pop(); saveAll(storage); renderHistory() }
+        function openManual(){ try{ var tipo = prompt('Tipo (entrada, inicioAlm, fimAlm, saida):'); if(!tipo) return; var time = prompt('Hora HH:MM (vazio = agora)'); var iso; if(!time) iso=nowIso(); else{ var parts = time.split(':'); var hh = parseInt(parts[0]||0,10); var mm = parseInt(parts[1]||0,10); var d = new Date(); d.setHours(hh,mm,0,0); iso = d.toISOString(); } if(tipo==='entrada') markEntrada(iso); if(tipo==='inicioAlm') markInicioAlm(iso); if(tipo==='fimAlm') markFimAlm(iso); if(tipo==='saida') markSaida(iso); }catch(e){ reportError(e); } }
 
-      function markEntrada(t=null){ try{ const k=todayKey(); ensureToday(); if(!t) t=nowIso(); storage.dates[k].entrada=t; pushHistory(k,{type:'entrada',time:t}); saveAll(storage); render(); scheduleAll() }catch(e){ reportError(e) } }
-      function markInicioAlm(t=null){ try{ const k=todayKey(); ensureToday(); if(!t) t=nowIso(); storage.dates[k].inicioAlm=t; pushHistory(k,{type:'inicioAlm',time:t}); saveAll(storage); render(); scheduleAll() }catch(e){ reportError(e) } }
-      function markFimAlm(t=null){ try{ const k=todayKey(); ensureToday(); if(!t) t=nowIso(); storage.dates[k].fimAlm=t; pushHistory(k,{type:'fimAlm',time:t}); saveAll(storage); render(); scheduleAll() }catch(e){ reportError(e) } }
-      function markSaida(t=null){ try{ const k=todayKey(); ensureToday(); if(!t) t=nowIso(); storage.dates[k].saida=t; pushHistory(k,{type:'saida',time:t}); saveAll(storage); render(); scheduleAll() }catch(e){ reportError(e) } }
-      function resetDia(){ try{ if(!confirm('Confirma reset do dia?')) return; const k=todayKey(); storage.dates[k] = { entrada:null,inicioAlm:null,fimAlm:null,saida:null,history:[] }; saveAll(storage); render(); scheduleAll() }catch(e){ reportError(e) } }
+        function getLunchDurationMsFor(dateKey){ try{ var s = getStateFor(dateKey); if(!s || !s.inicioAlm) return 0; var end = s.fimAlm? new Date(s.fimAlm): new Date(); return Math.max(0, end - new Date(s.inicioAlm)); }catch(e){ return 0; } }
+        function calcRecommendedExitFor(dateKey){ try{ var s = getStateFor(dateKey); if(!s || !s.entrada) return null; var entrada = new Date(s.entrada); var workMs = 8*60*60*1000; var lunchMs = 0; if(s.inicioAlm && s.fimAlm) lunchMs = new Date(s.fimAlm) - new Date(s.inicioAlm); if(s.inicioAlm && !s.fimAlm) lunchMs = new Date() - new Date(s.inicioAlm); var exit = new Date(entrada.getTime() + workMs + lunchMs); return exit; }catch(e){ return null; } }
 
-      function openManual(){ try{ const tipo = prompt('Tipo (entrada, inicioAlm, fimAlm, saida):'); if(!tipo) return; const time = prompt('Hora HH:MM (vazio = agora)'); let iso; if(!time) iso=nowIso(); else{ const [hh,mm]=time.split(':'); const d=new Date(); d.setHours(parseInt(hh||0),parseInt(mm||0),0,0); iso=d.toISOString() } if(tipo==='entrada') markEntrada(iso); if(tipo==='inicioAlm') markInicioAlm(iso); if(tipo==='fimAlm') markFimAlm(iso); if(tipo==='saida') markSaida(iso); }catch(e){ reportError(e) } }
+        function scheduleAll(){ try{ if(window._pontoTimers) window._pontoTimers.forEach(function(t){ clearTimeout(t); }); window._pontoTimers = []; var k = todayKey(); var exit = calcRecommendedExitFor(k); if(exit){ var now = new Date(); var delta = exit - now; if(delta>0){ var warnMs = cfg.leaveWarnMin * 60 * 1000; var tWarn = delta - warnMs; if(tWarn>0) window._pontoTimers.push(setTimeout(function(){ triggerLeaveWarning(exit); }, tWarn)); window._pontoTimers.push(setTimeout(function(){ triggerLeaveWarning(exit, true); }, delta)); } }
+            var s = getStateFor(k);
+            if(s && s.inicioAlm && !s.fimAlm){ var start = new Date(s.inicioAlm); var limit = start.getTime() + cfg.lunchLimitMin*60*1000; var nowT = Date.now(); var delta2 = limit - nowT; if(delta2>0) window._pontoTimers.push(setTimeout(function(){ triggerLunchLimit(); }, delta2)); else triggerLunchLimit(); }
+            if(cfg.meeting){ var parts = cfg.meeting.split(':'); if(parts[0] !== undefined && parts[0] !== ''){ var d = new Date(); d.setHours(parseInt(parts[0],10), parseInt(parts[1]||0,10),0,0); var dd = d.getTime() - Date.now(); if(dd>0) window._pontoTimers.push(setTimeout(function(){ triggerMeetingReminder(cfg.meeting); }, dd)); }
+            }
+        }catch(e){ console.warn('scheduleAll failed', e); }
+        }
 
-      function getLunchDurationMsFor(dateKey){ try{ const s=getStateFor(dateKey); if(!s || !s.inicioAlm) return 0; const end = s.fimAlm? new Date(s.fimAlm): new Date(); return Math.max(0, end - new Date(s.inicioAlm)) }catch(e){ console.warn(e); return 0 } }
-      function calcRecommendedExitFor(dateKey){ try{ const s=getStateFor(dateKey); if(!s || !s.entrada) return null; const entrada=new Date(s.entrada); const workMs=8*60*60*1000; let lunchMs=0; if(s.inicioAlm && s.fimAlm) lunchMs=new Date(s.fimAlm)-new Date(s.inicioAlm); if(s.inicioAlm && !s.fimAlm) lunchMs=new Date()-new Date(s.inicioAlm); const exit=new Date(entrada.getTime()+workMs+lunchMs); return exit }catch(e){ console.warn(e); return null } }
+        function triggerLunchLimit(){ notify('Almoço: limite atingido', 'Você atingiu o limite configurado de almoço. Marque retorno.'); playTone(); }
+        function triggerMeetingReminder(time){ notify('Lembrete: reunião', 'Reunião às ' + time); playTone(); }
+        function triggerLeaveWarning(exit, force){ var t = new Date(exit); var msg = force ? ('Hora de sair (' + t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) + ')') : ('Faltam ' + cfg.leaveWarnMin + ' minutos para sua saída às ' + t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})); notify('Saída', msg); playTone(); }
 
-      function scheduleAll(){ try{ if(window._pontoTimers) window._pontoTimers.forEach(clearTimeout); window._pontoTimers=[]; const k=todayKey(); const exit=calcRecommendedExitFor(k); if(exit){ const now=new Date(); const delta=exit-now; if(delta>0){ const warnMs=cfg.leaveWarnMin*60*1000; const tWarn=delta-warnMs; if(tWarn>0) window._pontoTimers.push(setTimeout(()=>{ triggerLeaveWarning(exit) }, tWarn)); window._pontoTimers.push(setTimeout(()=>{ triggerLeaveWarning(exit,true) }, delta)) } }
-        const s = getStateFor(k);
-        if(s && s.inicioAlm && !s.fimAlm){ const start=new Date(s.inicioAlm); const limit=start.getTime()+cfg.lunchLimitMin*60*1000; const now=Date.now(); const delta=limit-now; if(delta>0) window._pontoTimers.push(setTimeout(()=>{ triggerLunchLimit() }, delta)); else triggerLunchLimit() }
-        if(cfg.meeting){ const [h,m]=cfg.meeting.split(':'); if(h!==undefined && h!==''){ const d=new Date(); d.setHours(parseInt(h),parseInt(m),0,0); const dd=d.getTime()-Date.now(); if(dd>0) window._pontoTimers.push(setTimeout(()=>{ triggerMeetingReminder(cfg.meeting) }, dd)) } }
-      }catch(e){ console.warn('scheduleAll failed',e) }
-    }
+        function render(){ try{ var k = todayKey(); ensureToday(); var s = getStateFor(k); entradaDisplay.textContent = s && s.entrada ? fmtTime(s.entrada) : '--:--'; var exit = calcRecommendedExitFor(k); saidaRecomendada.textContent = exit ? exit.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '--:--'; if(exit){ var diffMs = new Date(exit) - new Date(); if(diffMs>0){ var mins = Math.ceil(diffMs/60000); timeRemaining.textContent = 'Faltam ' + mins + ' min'; } else timeRemaining.textContent = 'Jornada concluída'; } else timeRemaining.textContent = ''; renderHistory(); }catch(e){}
+        }
 
-      function triggerLunchLimit(){ notify('Almoço: limite atingido','Você atingiu o limite configurado de almoço. Marque retorno.'); playTone() }
-      function triggerMeetingReminder(time){ notify('Lembrete: reunião',`Reunião às ${time}`); playTone() }
-      function triggerLeaveWarning(exit,force=false){ const t=new Date(exit); const msg = force?`Hora de sair (${t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})})`:`Faltam ${cfg.leaveWarnMin} minutos para sua saída às ${t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`; notify('Saída',msg); playTone() }
+        function renderHistory(){ try{ historyEl.innerHTML = ''; var dates = Object.keys(storage.dates).sort().reverse().slice(0,MAX_HISTORY_DAYS); for(var i=0;i<dates.length;i++){ var dk = dates[i]; var s = storage.dates[dk]; var div = document.createElement('div'); div.className = 'entry'; div.innerHTML = '<div><div class="muted">'+dk+'</div><div>Entrada: '+(s.entrada?fmtTime(s.entrada):'--:--')+' — Saída: '+(s.saida?fmtTime(s.saida):'--:--')+'</div></div><div><button class="small" data-show="'+dk+'" type="button">Ver</button></div>'; historyEl.appendChild(div); }
+            logEl.innerHTML = ''; var todayHist = (getStateFor(todayKey()) || {history: []}).history; for(var j=0;j<todayHist.length;j++){ var h = todayHist[j]; var d = document.createElement('div'); d.className='entry'; d.innerHTML = '<div>'+h.type+' — '+(new Date(h.time)).toLocaleString()+'</div><div><button class="small" data-remove="'+h.time+'" type="button">X</button></div>'; logEl.appendChild(d); }
+        }catch(e){}
+        }
 
-      function render(){ try{ const k=todayKey(); ensureToday(); const s = getStateFor(k); entradaDisplay.textContent = s && s.entrada? fmtTime(s.entrada): '--:--'; const exit = calcRecommendedExitFor(k); saidaRecomendada.textContent = exit? exit.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}): '--:--'; if(exit){ const diffMs=new Date(exit)-new Date(); if(diffMs>0){ const mins=Math.ceil(diffMs/60000); timeRemaining.textContent = `Faltam ${mins} min`} else timeRemaining.textContent='Jornada concluída' } else timeRemaining.textContent=''; renderHistory(); }catch(e){ console.warn(e) } }
+        historyEl.addEventListener('click', function(e){ try{ if(e.target && e.target.tagName === 'BUTTON'){ var dk = e.target.dataset.show; if(!dk) return; var s = getStateFor(dk); var msg = 'Data: ' + dk + '\n' + 'Entrada: ' + (s.entrada?fmtTime(s.entrada):'--:--') + '\n' + 'Início Alm: ' + (s.inicioAlm?fmtTime(s.inicioAlm):'--:--') + '\n' + 'Fim Alm: ' + (s.fimAlm?fmtTime(s.fimAlm):'--:--') + '\n' + 'Saída: ' + (s.saida?fmtTime(s.saida):'--:--'); alert(msg); } }catch(e){} });
 
-      function renderHistory(){ try{ historyEl.innerHTML=''; const dates = Object.keys(storage.dates).sort().reverse().slice(0,MAX_HISTORY_DAYS); dates.forEach(dk=>{ const s=storage.dates[dk]; const div=document.createElement('div'); div.className='entry'; div.innerHTML = `<div><div class="muted">${dk}</div><div>Entrada: ${s.entrada?fmtTime(s.entrada):'--:--'} — Saída: ${s.saida?fmtTime(s.saida):'--:--'}</div></div><div><button class="small" data-show="${dk}" type="button">Ver</button></div>`; historyEl.appendChild(div) }); logEl.innerHTML=''; const todayHist = (getStateFor(todayKey())||{history:[]}).history; todayHist.forEach(h=>{ const d=document.createElement('div'); d.className='entry'; d.innerHTML = `<div>${h.type} — ${new Date(h.time).toLocaleString()}</div><div><button class="small" data-remove="${h.time}" type="button">X</button></div>`; logEl.appendChild(d) }) }catch(e){ console.warn(e) } }
+        logEl.addEventListener('click', function(e){ try{ if(e.target && e.target.tagName === 'BUTTON'){ var ts = e.target.dataset.remove; var k = todayKey(); var s = getStateFor(k); s.history = s.history.filter(function(h){ return h.time !== ts; }); saveAll(storage); render(); } }catch(e){} });
 
-      historyEl.addEventListener('click', e=>{ try{ if(e.target.tagName==='BUTTON'){ const dk=e.target.dataset.show; if(!dk) return; const s = getStateFor(dk); alert(`Data: ${dk}
-Entrada: ${s.entrada?fmtTime(s.entrada):'--:--'}
-Início Alm: ${s.inicioAlm?fmtTime(s.inicioAlm):'--:--'}
-Fim Alm: ${s.fimAlm?fmtTime(s.fimAlm):'--:--'}
-Saída: ${s.saida?fmtTime(s.saida):'--:--'}`) } }catch(e){ console.warn(e) } })
-      logEl.addEventListener('click', e=>{ try{ if(e.target.tagName==='BUTTON'){ const ts=e.target.dataset.remove; const k=todayKey(); const s=getStateFor(k); s.history = s.history.filter(h=>h.time!==ts); saveAll(storage); render(); } }catch(e){ console.warn(e) } })
+        // wire buttons
+        byId('btnEntrada').addEventListener('click', function(){ markEntrada(); });
+        byId('btnInicioAlm').addEventListener('click', function(){ markInicioAlm(); });
+        byId('btnFimAlm').addEventListener('click', function(){ markFimAlm(); });
+        byId('btnSaida').addEventListener('click', function(){ markSaida(); });
+        byId('btnReset').addEventListener('click', function(){ resetDia(); });
+        byId('btnManual').addEventListener('click', function(){ openManual(); });
 
-      byId('btnEntrada').addEventListener('click', ()=>markEntrada())
-      byId('btnInicioAlm').addEventListener('click', ()=>markInicioAlm())
-      byId('btnFimAlm').addEventListener('click', ()=>markFimAlm())
-      byId('btnSaida').addEventListener('click', ()=>markSaida())
-      byId('btnReset').addEventListener('click', ()=>resetDia())
-      byId('btnManual').addEventListener('click', ()=>openManual())
+        byId('btnClearStorage').addEventListener('click', function(){ if(confirm('Limpar todo o storage?')){ localStorage.removeItem(KEY); localStorage.removeItem(CFG_KEY); storage = {dates:{}}; cfg = loadCfg(); ensureToday(); render(); alert('Storage limpo'); } });
+        byId('btnClearStorage2').addEventListener('click', function(){ if(confirm('Limpar todo o storage?')){ localStorage.removeItem(KEY); localStorage.removeItem(CFG_KEY); storage = {dates:{}}; cfg = loadCfg(); ensureToday(); render(); alert('Storage limpo'); } });
 
-      byId('btnClearStorage').addEventListener('click', ()=>{ try{ if(confirm('Limpar todo o storage? Isso removerá histórico.')){ localStorage.removeItem(KEY); localStorage.removeItem(CFG_KEY); storage={dates:{}}; cfg = loadCfg(); ensureToday(); render(); alert('Storage limpo') } }catch(e){ reportError(e) } })
-      byId('btnClearStorage2').addEventListener('click', ()=>{ try{ if(confirm('Limpar todo o storage?')){ localStorage.removeItem(KEY); localStorage.removeItem(CFG_KEY); storage={dates:{}}; cfg = loadCfg(); ensureToday(); render(); alert('Storage limpo') } }catch(e){ reportError(e) } })
+        byId('btnTestTone').addEventListener('click', function(){ playTone(); setTimeout(function(){ stopTone(); }, 3000); });
 
-      byId('btnTestTone').addEventListener('click', ()=>{ try{ playTone(); setTimeout(()=>stopTone(),3000) }catch(e){ reportError(e) } })
+        byId('btnLunchInc').addEventListener('click', function(){ var el = byId('cfgLunchLimit'); el.value = Math.min(480, parseInt(el.value||120,10)+5); cfg.lunchLimitMin = parseInt(el.value,10); saveCfg(cfg); scheduleAll(); });
+        byId('btnLunchDec').addEventListener('click', function(){ var el = byId('cfgLunchLimit'); el.value = Math.max(15, parseInt(el.value||120,10)-5); cfg.lunchLimitMin = parseInt(el.value,10); saveCfg(cfg); scheduleAll(); });
+        byId('cfgLunchLimit').addEventListener('change', function(e){ cfg.lunchLimitMin = parseInt(e.target.value||120,10); saveCfg(cfg); scheduleAll(); });
+        byId('cfgMeeting').addEventListener('change', function(e){ cfg.meeting = e.target.value; saveCfg(cfg); scheduleAll(); });
+        byId('btnAddMeeting').addEventListener('click', function(){ cfg.meeting = byId('cfgMeeting').value; saveCfg(cfg); scheduleAll(); alert('Lembrete salvo'); });
 
-      byId('btnSaveCfg').addEventListener('click', ()=>{ try{ cfg.lunchLimitMin = parseInt(byId('cfgLunchLimit').value||120); cfg.leaveWarnMin = parseInt(byId('cfgLeaveWarn').value||15); cfg.tone = byId('cfgTone').value; cfg.nag = byId('cfgNag').value; cfg.meeting = byId('cfgMeeting').value; saveCfg(cfg); setAudioSource(); scheduleAll(); alert('Configurações salvas') }catch(e){ reportError(e) } })
-      byId('btnResetCfg').addEventListener('click', ()=>{ try{ if(confirm('Resetar configurações?')){ cfg = defaults.cfg; saveCfg(cfg); applyCfgToUI(); setAudioSource(); scheduleAll() } }catch(e){ reportError(e) } })
-      byId('btnPlayTone').addEventListener('click', ()=>{ try{ playTone(); setTimeout(()=>stopTone(),3000) }catch(e){ reportError(e) } })
+        byId('btnSaveCfg').addEventListener('click', function(){ cfg.lunchLimitMin = parseInt(byId('cfgLunchLimit').value||120,10); cfg.leaveWarnMin = parseInt(byId('cfgLeaveWarn').value||15,10); cfg.tone = byId('cfgTone').value; cfg.nag = byId('cfgNag').value; cfg.meeting = byId('cfgMeeting').value; saveCfg(cfg); setAudioSource(); scheduleAll(); alert('Configurações salvas'); });
+        byId('btnResetCfg').addEventListener('click', function(){ if(confirm('Resetar configurações?')){ cfg = defaults.cfg; saveCfg(cfg); applyCfgToUI(); setAudioSource(); scheduleAll(); } });
+        byId('btnPlayTone').addEventListener('click', function(){ playTone(); setTimeout(function(){ stopTone(); }, 3000); });
 
-      byId('btnLunchInc').addEventListener('click', ()=>{ try{ const el=byId('cfgLunchLimit'); el.value = Math.min(480, parseInt(el.value||120)+5); cfg.lunchLimitMin = parseInt(el.value); saveCfg(cfg); scheduleAll() }catch(e){ reportError(e) } })
-      byId('btnLunchDec').addEventListener('click', ()=>{ try{ const el=byId('cfgLunchLimit'); el.value = Math.max(15, parseInt(el.value||120)-5); cfg.lunchLimitMin = parseInt(el.value); saveCfg(cfg); scheduleAll() }catch(e){ reportError(e) } })
-      byId('cfgLunchLimit').addEventListener('change', (e)=>{ try{ cfg.lunchLimitMin = parseInt(e.target.value||120); saveCfg(cfg); scheduleAll() }catch(e){ reportError(e) } })
-      byId('cfgMeeting').addEventListener('change', (e)=>{ try{ cfg.meeting = e.target.value; saveCfg(cfg); scheduleAll() }catch(e){ reportError(e) } })
-      byId('btnAddMeeting').addEventListener('click', ()=>{ try{ cfg.meeting = byId('cfgMeeting').value; saveCfg(cfg); scheduleAll(); alert('Lembrete salvo') }catch(e){ reportError(e) } })
+        // debug toggle by typing 'debug'
+        (function(){ var buf=''; var target='debug'; var dbgPanel = byId('debugPanel'); var debug=false; document.addEventListener('keydown', function(e){ try{ if(e.key && e.key.length===1) buf += e.key.toLowerCase(); else if(e.key==='Backspace') buf = buf.slice(0,-1); if(buf.length>10) buf = buf.slice(-10); if(buf.indexOf(target, buf.length-target.length) !== -1){ debug = !debug; buf = ''; if(debug){ dbgPanel.classList.remove('hidden'); alert('Debug habilitado'); } else { dbgPanel.classList.add('hidden'); alert('Debug desabilitado'); } } }catch(err){} });
+        byId('btnTriggerNotif').addEventListener('click', function(){ notify('DEBUG','Teste de notificação'); });
+        byId('btnTriggerTone').addEventListener('click', function(){ playTone(); setTimeout(function(){ stopTone(); }, 5000); });
+        byId('btnApplyDbg').addEventListener('click', function(){ var e = byId('dbgEntrada').value; var ia = byId('dbgInicioAlm').value; var fa = byId('dbgFimAlm').value; var s = byId('dbgSaida').value; function toIso(timeStr){ if(!timeStr) return null; var parts = timeStr.split(':'); var d = new Date(); d.setHours(parseInt(parts[0],10), parseInt(parts[1]||0,10),0,0); return d.toISOString(); } var k = todayKey(); ensureToday(); if(e) storage.dates[k].entrada = toIso(e); if(ia) storage.dates[k].inicioAlm = toIso(ia); if(fa) storage.dates[k].fimAlm = toIso(fa); if(s) storage.dates[k].saida = toIso(s); saveAll(storage); render(); scheduleAll(); alert('Valores de debug aplicados'); });
 
-      function applyCfgToUI(){ try{ byId('cfgLunchLimit').value = cfg.lunchLimitMin; byId('cfgLeaveWarn').value = cfg.leaveWarnMin; byId('cfgTone').value = cfg.tone||'01.mp3'; byId('cfgNag').value = cfg.nag||'off'; byId('cfgMeeting').value = cfg.meeting||'' }catch(e){ console.warn(e) } }
+        // install prompt
+        var deferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', function(e){ try{ e.preventDefault(); deferredPrompt = e; var btn = byId('btnInstall'); btn.style.display = 'inline-block'; }catch(err){} });
+        byId('btnInstall').addEventListener('click', function(){ try{ if(!deferredPrompt) return; deferredPrompt.prompt(); deferredPrompt.userChoice.then(function(choiceResult){ deferredPrompt = null; byId('btnInstall').style.display = 'none'; }); }catch(err){ reportError(err); } });
 
-      byId('btnEnableNotif').addEventListener('click', async ()=>{ try{ if('Notification' in window){ const p = await Notification.requestPermission(); alert('Permissão: '+p); } else alert('Notifications API não disponível') }catch(e){ reportError(e) } })
+        // manifest + service worker as blobs
+        (function(){ try{ var manifest = { name: 'Ponto Reminder', short_name: 'Ponto', start_url: '.', display: 'standalone', background_color: '#07101a', theme_color: '#06d6a0', icons: [ {src:'assets/icon-192.png', sizes:'192x192', type:'image/png'}, {src:'assets/icon-512.png', sizes:'512x512', type:'image/png'} ] };
+            var manifestBlob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+            var manifestURL = URL.createObjectURL(manifestBlob);
+            var link = document.getElementById('appManifest'); if(link) link.setAttribute('href', manifestURL);
+            if('serviceWorker' in navigator){ var swCode = "self.addEventListener('install',function(e){self.skipWaiting()});self.addEventListener('activate',function(e){self.clients.claim()});self.addEventListener('fetch',function(e){});"; var swBlob = new Blob([swCode], {type:'application/javascript'}); var swUrl = URL.createObjectURL(swBlob); navigator.serviceWorker.register(swUrl).catch(function(){}); }
+        }catch(e){ console.warn('manifest error', e); } })();
 
-      document.addEventListener('click', ()=>{ try{ stopTone() }catch(e){} })
+        // helpers
+        function applyCfgToUI(){ try{ byId('cfgLunchLimit').value = cfg.lunchLimitMin; byId('cfgLeaveWarn').value = cfg.leaveWarnMin; byId('cfgTone').value = cfg.tone || '01.mp3'; byId('cfgNag').value = cfg.nag || 'off'; byId('cfgMeeting').value = cfg.meeting || ''; }catch(e){} }
 
-      applyCfgToUI(); render(); scheduleAll();
-      document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') scheduleAll() })
-      window.addEventListener('load', ()=> scheduleAll())
+        applyCfgToUI(); render(); scheduleAll();
 
-      // debug mode by typing 'debug'
-      (function(){ try{ let buf=''; const target='debug'; const dbgPanel = byId('debugPanel'); let debug=false; document.addEventListener('keydown', e=>{ if(e.key.length===1) buf += e.key.toLowerCase(); else if(e.key==='Backspace') buf = buf.slice(0,-1); if(buf.length>10) buf=buf.slice(-10); if(buf.endsWith(target)){ debug=!debug; buf=''; if(debug){ dbgPanel.classList.remove('hidden'); alert('Debug habilitado') } else { dbgPanel.classList.add('hidden'); alert('Debug desabilitado') } } })
-        byId('btnTriggerNotif').addEventListener('click', ()=>notify('DEBUG','Teste de notificação'))
-        byId('btnTriggerTone').addEventListener('click', ()=>{ playTone(); setTimeout(()=>stopTone(),5000) })
-        byId('btnApplyDbg').addEventListener('click', ()=>{ const e = byId('dbgEntrada').value; const ia = byId('dbgInicioAlm').value; const fa = byId('dbgFimAlm').value; const s = byId('dbgSaida').value; function toIso(timeStr){ if(!timeStr) return null; const [hh,mm]=timeStr.split(':'); const d=new Date(); d.setHours(parseInt(hh),parseInt(mm),0,0); return d.toISOString() } const k=todayKey(); ensureToday(); if(e) storage.dates[k].entrada = toIso(e); if(ia) storage.dates[k].inicioAlm = toIso(ia); if(fa) storage.dates[k].fimAlm = toIso(fa); if(s) storage.dates[k].saida = toIso(s); saveAll(storage); render(); scheduleAll(); alert('Valores de debug aplicados') })
-      }catch(e){ console.warn(e) } })()
+        // notification enable button
+        byId('btnEnableNotif').addEventListener('click', function(){ try{ if('Notification' in window){ Notification.requestPermission().then(function(p){ alert('Permissão: ' + p); }); } else alert('Notifications API não disponível'); }catch(e){ reportError(e); } });
 
-      // install flow
-      let deferredPrompt = null
-      window.addEventListener('beforeinstallprompt', (e) => { try{ e.preventDefault(); deferredPrompt = e; const btn = byId('btnInstall'); btn.style.display = 'inline-block'; }catch(err){ console.warn(err) } })
-      byId('btnInstall').addEventListener('click', async ()=>{ try{ if(!deferredPrompt) return; deferredPrompt.prompt(); const choiceResult = await deferredPrompt.userChoice; deferredPrompt = null; byId('btnInstall').style.display='none' }catch(e){ reportError(e) } })
+        // error reporting
+        function reportError(err){ try{ console.error(err); var box = document.getElementById('errorBox'); var msg = document.getElementById('errorMsg'); if(box){ box.style.display = 'block'; if(msg) msg.textContent = err && err.message ? err.message : String(err); } }catch(e){} }
 
-      // manifest + simple service worker
-      (function(){ try{ const manifest = { name:'Ponto Reminder', short_name:'Ponto', start_url:'.', display:'standalone', background_color:'#07101a', theme_color:'#06d6a0', icons:[{src:'assets/icon-192.png',sizes:'192x192',type:'image/png'},{src:'assets/icon-512.png',sizes:'512x512',type:'image/png'}] } const manifestBlob = new Blob([JSON.stringify(manifest)], {type:'application/json'}); const manifestURL = URL.createObjectURL(manifestBlob); const link = document.querySelector('#appManifest, {type:'application/javascript'}); const swUrl = URL.createObjectURL(swBlob); navigator.serviceWorker.register(swUrl).catch(()=>{}) } }catch(e){ console.warn(e) } })()
+        // global safety
+        window.addEventListener('error', function(e){ reportError(e.error || e.message || 'Erro desconhecido'); });
+        window.addEventListener('unhandledrejection', function(e){ reportError(e.reason || 'Promise rejeitada'); });
 
-      byId('dateNow').textContent = new Date().toLocaleDateString()
-      function setAudioSource(){ try{ audio.src = `assets/ring/${cfg.tone}` }catch(e){} }
-      setAudioSource();
-    } // end initApp
-
-    // global error catcher
-    window.addEventListener('error', (e)=>{ try{ reportError(e.error || e.message || 'Erro desconhecido') }catch(er){ console.error(er) } })
-    window.addEventListener('unhandledrejection', (e)=>{ try{ reportError(e.reason || 'Promise rejeitada') }catch(er){ console.error(er) } })
+      }catch(e){ var box = document.getElementById('errorBox'); if(box){ box.style.display = 'block'; var msg = document.getElementById('errorMsg'); if(msg) msg.textContent = e.message || String(e); } console.error(e); }
+    });
   </script>
 </body>
 </html>
