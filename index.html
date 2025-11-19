@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ponto Reminder</title>
+  <style>
+    :root{--bg:#0b1220;--card:#0f1724;--accent:#00b894;--muted:#9aa6b2;--danger:#ff7675}
+    *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#05060a 0%,#08101a 100%);color:#e6eef6}
+    .wrap{max-width:980px;margin:20px auto;padding:18px}
+    header{display:flex;align-items:center;gap:12px}
+    h1{margin:0;font-size:20px}
+    .grid{display:grid;grid-template-columns:1fr 320px;gap:14px;margin-top:18px}
+    .card{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,.6)}
+    .controls{display:flex;flex-wrap:wrap;gap:8px}
+    button{background:transparent;border:1px solid rgba(255,255,255,.06);color:inherit;padding:8px 12px;border-radius:8px;cursor:pointer}
+    button.primary{background:linear-gradient(90deg,var(--accent),#06d6a0);color:#02111a;border:0}
+    .small{padding:6px 8px;font-size:13px}
+    .log{max-height:360px;overflow:auto;margin-top:10px}
+    .entry{display:flex;justify-content:space-between;padding:8px;border-radius:8px;background:rgba(255,255,255,.02);margin-bottom:8px}
+    label{font-size:13px;color:var(--muted)}
+    input[type=time],input[type=number],select,input[type=text]{background:transparent;border:1px solid rgba(255,255,255,.04);padding:8px;border-radius:8px;color:inherit}
+    .settings{display:flex;flex-direction:column;gap:8px}
+    footer{margin-top:16px;color:var(--muted);font-size:13px}
+    .top-row{display:flex;gap:8px;align-items:center}
+    .big{font-size:28px;font-weight:700}
+    .muted{color:var(--muted)}
+    .danger{color:var(--danger)}
+    .flex{display:flex;gap:8px;align-items:center}
+    .switch{display:inline-flex;align-items:center;gap:8px}
+    .file{display:flex;gap:8px;align-items:center}
+    .notice{padding:10px;border-radius:8px;background:rgba(0,0,0,.25);color:var(--muted);font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <img src="" alt="" style="width:44px;height:44px;border-radius:8px;background:linear-gradient(135deg,#0ea5a4,#8b5cf6)" />
+      <div>
+        <h1>Ponto Reminder (Web)</h1>
+        <div class="muted">Funciona offline no navegador (LocalStorage).</div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div>
+        <div class="card">
+          <div class="top-row">
+            <div>
+              <div class="muted">Entrada</div>
+              <div id="entradaDisplay" class="big">--:--</div>
+            </div>
+            <div style="margin-left:auto;text-align:right">
+              <div class="muted">Saída recomendada</div>
+              <div id="saidaRecomendada" class="big">--:--</div>
+              <div id="timeRemaining" class="muted"> </div>
+            </div>
+          </div>
+
+          <hr style="opacity:.06;margin:14px 0" />
+
+          <div class="controls">
+            <button id="btnEntrada" class="primary">Marcar Entrada</button>
+            <button id="btnInicioAlm">Iniciar Almoço</button>
+            <button id="btnFimAlm">Encerrar Almoço</button>
+            <button id="btnSaida">Marcar Saída</button>
+            <button id="btnReset">Reset do dia</button>
+
+            <div style="margin-left:auto;display:flex;gap:8px">
+              <button id="btnManual" class="small">Marca Manual</button>
+              <button id="btnExport">Exportar JSON</button>
+              <button id="btnImport">Importar JSON</button>
+            </div>
+          </div>
+
+          <div style="margin-top:12px" class="notice">
+            Toques: assets/ring/01.mp3, 02.mp3, 03.mp3 — selecione nas configurações. Permissões: notificações e som.
+          </div>
+
+          <div class="log" id="log">
+            <!-- registros aparecem aqui -->
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Configurações</h3>
+          <div class="settings">
+            <label>Limite almoço (minutos)</label>
+            <input id="cfgLunchLimit" type="number" min="15" step="5" value="120" />
+
+            <label>Alerta quando faltar (minutos) para saída</label>
+            <input id="cfgLeaveWarn" type="number" min="1" value="15" />
+
+            <label>Toque</label>
+            <select id="cfgTone">
+              <option value="01.mp3">01.mp3</option>
+              <option value="02.mp3">02.mp3</option>
+              <option value="03.mp3">03.mp3</option>
+            </select>
+
+            <label>Modo chato (repetir até ação)</label>
+            <select id="cfgNag">
+              <option value="off">Desligado</option>
+              <option value="on">Ligado</option>
+            </select>
+
+            <label>Lembrete extra para reunião (opcional) — ex: 12:30</label>
+            <input id="cfgMeeting" type="time" />
+
+            <div style="display:flex;gap:8px;margin-top:6px">
+              <button id="btnSaveCfg" class="small">Salvar</button>
+              <button id="btnResetCfg" class="small">Reset Config</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <aside>
+        <div class="card">
+          <h3>Histórico do dia</h3>
+          <div id="history" style="margin-top:10px"></div>
+
+          <hr style="opacity:.06;margin:12px 0" />
+
+          <h3>Import / Export</h3>
+          <div style="display:flex;gap:8px;flex-direction:column">
+            <button id="btnExportFile">Exportar arquivo (.json)</button>
+            <input id="inputImportFile" type="file" accept="application/json" />
+          </div>
+
+          <hr style="opacity:.06;margin:12px 0" />
+          <div class="muted">Dicas:</div>
+          <ul class="muted">
+            <li>Permita notificações no navegador.</li>
+            <li>No Android use 'Adicionar à tela inicial' para disponibilizar como app sem instalação.</li>
+            <li>O app funciona offline no mesmo navegador (LocalStorage).</li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+
+    <footer>Para facilitar o nosso dia...</footer>
+  </div>
+
+  <audio id="audioPlayer" preload="auto"></audio>
+
+  <script>
+    // ---------- storage keys & helpers ----------
+    const KEY = 'ponto.reminder.v1'
+    const CFG_KEY = 'ponto.reminder.cfg.v1'
+
+    const defaults = {
+      cfg: {
+        lunchLimitMin: 120,
+        leaveWarnMin: 15,
+        tone: '01.mp3',
+        nag: 'off',
+        meeting: ''
+      },
+      state: {
+        date: todayKey(),
+        entrada: null,
+        inicioAlm: null,
+        fimAlm: null,
+        saida: null,
+        history: []
+      }
+    }
+
+    function todayKey(){ const d=new Date(); return d.toISOString().slice(0,10) }
+
+    function load(){
+      let raw = localStorage.getItem(KEY)
+      if(!raw) { save(defaults.state); localStorage.setItem(CFG_KEY, JSON.stringify(defaults.cfg)); return {...defaults.state} }
+      try{ const parsed = JSON.parse(raw); // migrate if necessary
+        if(parsed.date !== todayKey()){
+          // preserve previous day but reset state for today
+          parsed.date = todayKey(); parsed.entrada=null; parsed.inicioAlm=null; parsed.fimAlm=null; parsed.saida=null; parsed.history = parsed.history || []
+          save(parsed)
+        }
+        return parsed
+      }catch(e){ console.error(e); save(defaults.state); return {...defaults.state} }
+    }
+
+    function save(state){ localStorage.setItem(KEY, JSON.stringify(state)) }
+    function loadCfg(){ const raw = localStorage.getItem(CFG_KEY); return raw ? JSON.parse(raw) : defaults.cfg }
+    function saveCfg(cfg){ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)) }
+
+    // ---------- app state ----------
+    let state = load()
+    let cfg = loadCfg()
+
+    // audio + notification setup
+    const audio = document.getElementById('audioPlayer')
+    function playTone(){ audio.src = `assets/ring/${cfg.tone}`; audio.loop = (cfg.nag==='on'); audio.play().catch(e=>console.log('play blocked')) }
+    function stopTone(){ audio.pause(); audio.currentTime = 0; audio.loop = false }
+
+    async function notify(title, body, actions=[]){
+      if('Notification' in window){
+        if(Notification.permission === 'default') await Notification.requestPermission()
+        if(Notification.permission === 'granted'){
+          try{ const n = new Notification(title, {body,requireInteraction: (cfg.nag==='on')})
+            n.onclick = ()=>window.focus()
+          }catch(e){console.warn('notify failed',e)}
+        }
+      }
+      // also vibrate (mobile)
+      if(navigator.vibrate) navigator.vibrate([200,100,200])
+    }
+
+    // ---------- DOM utils ----------
+    const byId = id => document.getElementById(id)
+    const entradaDisplay = byId('entradaDisplay')
+    const saidaRecomendada = byId('saidaRecomendada')
+    const timeRemaining = byId('timeRemaining')
+    const logEl = byId('log')
+    const historyEl = byId('history')
+
+    function fmtTime(d){ if(!d) return '--:--'; const dt=new Date(d); return dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) }
+    function nowIso(){ return (new Date()).toISOString() }
+
+    // ---------- actions ----------
+    function pushHistory(evt){ state.history.unshift(evt); if(state.history.length>200) state.history.pop(); save(state); renderHistory() }
+
+    function markEntrada(t=null){ if(!t) t = nowIso(); state.entrada = t; pushHistory({type:'entrada',time:t}); save(state); render(); scheduleAll() }
+    function markInicioAlm(t=null){ if(!t) t = nowIso(); state.inicioAlm = t; pushHistory({type:'inicioAlm',time:t}); save(state); render(); scheduleAll() }
+    function markFimAlm(t=null){ if(!t) t = nowIso(); state.fimAlm = t; pushHistory({type:'fimAlm',time:t}); save(state); render(); scheduleAll() }
+    function markSaida(t=null){ if(!t) t = nowIso(); state.saida = t; pushHistory({type:'saida',time:t}); save(state); render(); scheduleAll() }
+    function resetDia(){ if(!confirm('Confirma reset do dia?')) return; state.entrada=null; state.inicioAlm=null; state.fimAlm=null; state.saida=null; state.history=[]; save(state); render(); scheduleAll() }
+
+    // manual marker dialog
+    function openManual(){ const tipo = prompt('Tipo (entrada, inicioAlm, fimAlm, saida):')
+      if(!tipo) return; const time = prompt('Hora no formato HH:MM (24h) — deixe vazio para agora')
+      let iso
+      if(!time) iso = nowIso()
+      else{
+        const [hh,mm] = time.split(':'); const d = new Date(); d.setHours(parseInt(hh||0),parseInt(mm||0),0,0); iso = d.toISOString()
+      }
+      if(tipo==='entrada') markEntrada(iso)
+      if(tipo==='inicioAlm') markInicioAlm(iso)
+      if(tipo==='fimAlm') markFimAlm(iso)
+      if(tipo==='saida') markSaida(iso)
+    }
+
+    // ---------- calculations ----------
+    function getLunchDurationMs(){ if(!state.inicioAlm) return 0; const end = state.fimAlm ? new Date(state.fimAlm) : new Date(); return Math.max(0, end - new Date(state.inicioAlm)) }
+    function calcRecommendedExit(){ if(!state.entrada) return null; const entrada = new Date(state.entrada); // jornada 8h
+      const workMs = 8 * 60 * 60 * 1000
+      // if lunch already finished, account for actual lunch duration
+      let lunchMs = 0
+      if(state.inicioAlm && state.fimAlm) lunchMs = new Date(state.fimAlm) - new Date(state.inicioAlm)
+      // if lunch started but not finished, assume current duration so far (user might want to come back)
+      if(state.inicioAlm && !state.fimAlm) lunchMs = new Date() - new Date(state.inicioAlm)
+      const exit = new Date(entrada.getTime() + workMs + lunchMs)
+      return exit
+    }
+
+    function scheduleAll(){ // clear previous timers by using timeouts stored
+      // simple approach: clear all timeouts using array
+      if(window._pontoTimers) window._pontoTimers.forEach(clearTimeout)
+      window._pontoTimers = []
+
+      const exit = calcRecommendedExit()
+      if(exit){
+        const now = new Date(); const delta = exit - now
+        if(delta>0){
+          // schedule leave-warning
+          const warnMs = cfg.leaveWarnMin * 60 * 1000
+          const tWarn = delta - warnMs
+          if(tWarn>0){ window._pontoTimers.push(setTimeout(()=>{ triggerLeaveWarning(exit) }, tWarn)) }
+          // schedule final notification at exit
+          window._pontoTimers.push(setTimeout(()=>{ triggerLeaveWarning(exit,true) }, delta))
+        }
+      }
+
+      // lunch limit warning
+      if(state.inicioAlm && !state.fimAlm){
+        const start = new Date(state.inicioAlm)
+        const limit = start.getTime() + cfg.lunchLimitMin*60*1000
+        const now = new Date().getTime()
+        const delta = limit - now
+        if(delta>0){ window._pontoTimers.push(setTimeout(()=>{ triggerLunchLimit() }, delta)) } else { triggerLunchLimit() }
+      }
+
+      // meeting reminder
+      if(cfg.meeting){
+        const [h,m] = cfg.meeting.split(':')
+        if(h!==undefined){ const d = new Date(); d.setHours(parseInt(h),parseInt(m),0,0); const dd = d.getTime()-Date.now(); if(dd>0) window._pontoTimers.push(setTimeout(()=>{ triggerMeetingReminder(cfg.meeting) }, dd)) }
+      }
+    }
+
+    function triggerLunchLimit(){ notify('Almoço: limite atingido','Você atingiu o limite configurado de almoço. Marque retorno.'); if(cfg.nag==='on') playTone(); else playTone(); }
+    function triggerMeetingReminder(time){ notify('Lembrete: reunião',`Reunião programada às ${time}`); if(cfg.nag==='on') playTone(); else playTone(); }
+    function triggerLeaveWarning(exit, force=false){ const t = new Date(exit); const msg = force ? `Hora de sair (${fmtTime(exit)})` : `Faltam ${cfg.leaveWarnMin} minutos para sua saída às ${fmtTime(exit)}`
+      notify('Saída', msg);
+      if(cfg.nag==='on' || force) playTone();
+    }
+
+    // ---------- render ----------
+    function render(){
+      entradaDisplay.textContent = state.entrada ? fmtTime(state.entrada) : '--:--'
+      const exit = calcRecommendedExit()
+      saidaRecomendada.textContent = exit ? exit.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '--:--'
+
+      // time remaining
+      if(exit){ const diffMs = new Date(exit) - new Date(); if(diffMs>0){ const mins = Math.ceil(diffMs/60000); timeRemaining.textContent = `Faltam ${mins} min` } else timeRemaining.textContent = 'Jornada concluída' }
+      else timeRemaining.textContent = ''
+
+      // history
+      renderHistory()
+    }
+
+    function renderHistory(){ historyEl.innerHTML = '';
+      const map = {entrada:'Entrada', inicioAlm:'Início Almoço', fimAlm:'Fim Almoço', saida:'Saída'}
+      Object.keys(map).forEach(k=>{
+        const v = state[k]
+        const div = document.createElement('div')
+        div.className = 'entry'
+        div.innerHTML = `<div><div class="muted">${map[k]}</div><div>${v?fmtTime(v):'--:--'}</div></div><div><button class="small" data-type="${k}">Editar</button></div>`
+        historyEl.appendChild(div)
+      })
+
+      // recent log
+      logEl.innerHTML = ''
+      state.history.forEach(h=>{
+        const d = document.createElement('div'); d.className='entry'; d.innerHTML = `<div>${h.type} — ${new Date(h.time).toLocaleString()}</div><div><button class="small" data-remove="${h.time}">X</button></div>`
+        logEl.appendChild(d)
+      })
+    }
+
+    // ---------- import/export ----------
+    function exportJson(){ const filename = `ponto-${todayKey()}.json`; const blob = new Blob([localStorage.getItem(KEY) || '{}'], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url) }
+
+    function exportFile(){ const payload = {cfg:cfg,state:state, exportedAt: new Date().toISOString()}; const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `ponto-backup-${todayKey()}.json`; a.click() }
+
+    function importFile(file){ const reader = new FileReader(); reader.onload = e=>{
+      try{ const parsed = JSON.parse(e.target.result);
+        if(parsed.state) { state = parsed.state; save(state) }
+        if(parsed.cfg) { cfg = parsed.cfg; saveCfg(cfg); applyCfgToUI() }
+        render(); scheduleAll(); alert('Importação concluída')
+      }catch(err){ alert('Arquivo inválido') }
+    }
+      reader.readAsText(file)
+    }
+
+    // ---------- UI wiring ----------
+    byId('btnEntrada').addEventListener('click', ()=>markEntrada())
+    byId('btnInicioAlm').addEventListener('click', ()=>markInicioAlm())
+    byId('btnFimAlm').addEventListener('click', ()=>markFimAlm())
+    byId('btnSaida').addEventListener('click', ()=>markSaida())
+    byId('btnReset').addEventListener('click', ()=>resetDia())
+    byId('btnManual').addEventListener('click', ()=>openManual())
+    byId('btnExport').addEventListener('click', ()=>exportJson())
+
+    byId('btnExportFile').addEventListener('click', ()=>exportFile())
+    byId('inputImportFile').addEventListener('change', (e)=>{ if(e.target.files.length) importFile(e.target.files[0]) })
+
+    byId('btnSaveCfg').addEventListener('click', ()=>{
+      cfg.lunchLimitMin = parseInt(byId('cfgLunchLimit').value||120)
+      cfg.leaveWarnMin = parseInt(byId('cfgLeaveWarn').value||15)
+      cfg.tone = byId('cfgTone').value
+      cfg.nag = byId('cfgNag').value
+      cfg.meeting = byId('cfgMeeting').value
+      saveCfg(cfg)
+      scheduleAll()
+      alert('Configurações salvas')
+    })
+    byId('btnResetCfg').addEventListener('click', ()=>{ if(confirm('Resetar configurações?')){ cfg = defaults.cfg; saveCfg(cfg); applyCfgToUI() } })
+
+    byId('btnImport').addEventListener('click', ()=>{ const raw = prompt('Cole aqui o JSON exportado'); try{ const parsed = JSON.parse(raw); if(parsed.state){ state = parsed.state; save(state);} if(parsed.cfg){ cfg = parsed.cfg; saveCfg(cfg);} render(); scheduleAll(); alert('Import concluído') }catch(e){ alert('JSON inválido') } })
+
+    // edits from history
+    historyEl.addEventListener('click', e=>{ if(e.target.tagName==='BUTTON'){ const t = e.target.dataset.type; const time = prompt('Nova hora HH:MM — vazio = remover'); if(time==='') { state[t]=null; save(state); render(); scheduleAll(); return } if(!time) return; const [hh,mm]=time.split(':'); const d=new Date(); d.setHours(parseInt(hh),parseInt(mm),0,0); state[t]=d.toISOString(); save(state); render(); scheduleAll(); } })
+
+    // remove history item
+    logEl.addEventListener('click', e=>{ if(e.target.tagName==='BUTTON'){ const ts = e.target.dataset.remove; state.history = state.history.filter(h=>h.time!==ts); save(state); render(); } })
+
+    // file import input
+    byId('inputImportFile').addEventListener('change', e=>{ if(e.target.files && e.target.files[0]) importFile(e.target.files[0]) })
+
+    // apply cfg UI
+    function applyCfgToUI(){ byId('cfgLunchLimit').value = cfg.lunchLimitMin; byId('cfgLeaveWarn').value = cfg.leaveWarnMin; byId('cfgTone').value = cfg.tone; byId('cfgNag').value = cfg.nag; byId('cfgMeeting').value = cfg.meeting }
+
+    // request notification permission on first run
+    if('Notification' in window && Notification.permission === 'default') Notification.requestPermission().then(()=>{})
+
+    // stop tone when user interacts
+    document.addEventListener('click', ()=>{ stopTone() })
+
+    // init
+    applyCfgToUI(); render(); scheduleAll();
+
+    // keep timers alive if page hidden by using visibilitychange
+    document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') scheduleAll() })
+
+    // support for progressive web app / add to home screen: advise user in UI (no service worker in this repo)
+
+    // small heuristic: reschedule on load
+    window.addEventListener('load', ()=> scheduleAll())
+  </script>
+</body>
+</html>
