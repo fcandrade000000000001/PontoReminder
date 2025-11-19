@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Ponto Reminder</title>
-  <link rel="manifest" href="#manifest">
+  <link rel="manifest" id="appManifest">
   <style>
     :root{--bg:#07101a;--card:#0f1724;--accent:#06d6a0;--muted:#9aa6b2;--danger:#ff7675}
     *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
@@ -329,7 +329,7 @@ Saída: ${s.saida?fmtTime(s.saida):'--:--'}`) } }catch(e){ console.warn(e) } })
       byId('btnInstall').addEventListener('click', async ()=>{ try{ if(!deferredPrompt) return; deferredPrompt.prompt(); const choiceResult = await deferredPrompt.userChoice; deferredPrompt = null; byId('btnInstall').style.display='none' }catch(e){ reportError(e) } })
 
       // manifest + simple service worker
-      (function(){ try{ const manifest = { name:'Ponto Reminder', short_name:'Ponto', start_url:'.', display:'standalone', background_color:'#07101a', theme_color:'#06d6a0', icons:[{src:'assets/icon-192.png',sizes:'192x192',type:'image/png'},{src:'assets/icon-512.png',sizes:'512x512',type:'image/png'}] } const manifestBlob = new Blob([JSON.stringify(manifest)], {type:'application/json'}); const manifestURL = URL.createObjectURL(manifestBlob); const link = document.querySelector('link[rel="manifest"]'); if(link) link.href = manifestURL; if('serviceWorker' in navigator){ const swCode = `self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>self.clients.claim());self.addEventListener('fetch',e=>{});`; const swBlob = new Blob([swCode], {type:'application/javascript'}); const swUrl = URL.createObjectURL(swBlob); navigator.serviceWorker.register(swUrl).catch(()=>{}) } }catch(e){ console.warn(e) } })()
+      (function(){ try{ const manifest = { name:'Ponto Reminder', short_name:'Ponto', start_url:'.', display:'standalone', background_color:'#07101a', theme_color:'#06d6a0', icons:[{src:'assets/icon-192.png',sizes:'192x192',type:'image/png'},{src:'assets/icon-512.png',sizes:'512x512',type:'image/png'}] } const manifestBlob = new Blob([JSON.stringify(manifest)], {type:'application/json'}); const manifestURL = URL.createObjectURL(manifestBlob); const link = document.querySelector('#appManifest, {type:'application/javascript'}); const swUrl = URL.createObjectURL(swBlob); navigator.serviceWorker.register(swUrl).catch(()=>{}) } }catch(e){ console.warn(e) } })()
 
       byId('dateNow').textContent = new Date().toLocaleDateString()
       function setAudioSource(){ try{ audio.src = `assets/ring/${cfg.tone}` }catch(e){} }
